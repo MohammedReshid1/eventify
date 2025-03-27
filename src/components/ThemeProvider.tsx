@@ -20,54 +20,109 @@ const initialState: ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 
+// Script to initially set the theme before any rendering to avoid flash of wrong theme
+const colorThemeScript = `
+(function() {
+  try {
+    // Try to get theme mode from localStorage
+    const storageKey = "eventify-theme";
+    let theme = localStorage.getItem(storageKey);
+    
+    // If not available or set to system, check system preference
+    if (!theme || theme === 'system') {
+      theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(theme);
+  } catch (e) {
+    console.error('Error accessing localStorage:', e);
+  }
+})();
+`;
+
 export function ThemeProvider({
   children,
   defaultTheme = "system",
-  storageKey = "ui-theme",
+  storageKey = "eventify-theme",
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
-  )
+  // Initialize from localStorage, with fallback to defaultTheme
+  const [theme, setTheme] = useState<Theme>(() => {
+    // SSR check - if window is not defined, return defaultTheme
+    if (typeof window === 'undefined') return defaultTheme;
+    
+    try {
+      const storedTheme = window.localStorage.getItem(storageKey) as Theme;
+      return storedTheme || defaultTheme;
+    } catch (error) {
+      console.error('Error accessing localStorage:', error);
+      return defaultTheme;
+    }
+  });
 
+  // Listen for changes in system color scheme
   useEffect(() => {
-    const root = window.document.documentElement
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    
+    const handleChange = () => {
+      if (theme === "system") {
+        const root = window.document.documentElement;
+        root.classList.remove("light", "dark");
+        root.classList.add(mediaQuery.matches ? "dark" : "light");
+      }
+    };
+    
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, [theme]);
 
-    root.classList.remove("light", "dark")
+  // Apply theme to document
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove("light", "dark");
 
     if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-        .matches
+      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
         ? "dark"
-        : "light"
-
-      root.classList.add(systemTheme)
-      return
+        : "light";
+      root.classList.add(systemTheme);
+    } else {
+      root.classList.add(theme);
     }
+  }, [theme]);
 
-    root.classList.add(theme)
-  }, [theme])
+  // Save theme to localStorage when it changes
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(storageKey, theme);
+    } catch (error) {
+      console.error('Error writing to localStorage:', error);
+    }
+  }, [storageKey, theme]);
 
+  // Define value for context
   const value = {
     theme,
-    setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, theme)
-      setTheme(theme)
+    setTheme: (newTheme: Theme) => {
+      setTheme(newTheme);
     },
-  }
+  };
 
   return (
-    <ThemeProviderContext.Provider {...props} value={value}>
-      {children}
-    </ThemeProviderContext.Provider>
-  )
+    <>
+      {/* Inject script into head to set theme before React loads */}
+      <script dangerouslySetInnerHTML={{ __html: colorThemeScript }} />
+      <ThemeProviderContext.Provider {...props} value={value}>
+        {children}
+      </ThemeProviderContext.Provider>
+    </>
+  );
 }
 
 export const useTheme = () => {
-  const context = useContext(ThemeProviderContext)
-
+  const context = useContext(ThemeProviderContext);
   if (context === undefined)
-    throw new Error("useTheme must be used within a ThemeProvider")
-
-  return context
-} 
+    throw new Error("useTheme must be used within a ThemeProvider");
+  return context;
+}; 

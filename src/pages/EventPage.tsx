@@ -1,7 +1,5 @@
-
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -20,8 +18,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState, useEffect } from "react";
-import { Loader2, MapPin, Calendar, PartyPopper } from "lucide-react";
+import { Loader2, MapPin, Calendar, PartyPopper, Clock, Tag, Users } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { events as mockEvents } from "@/data/mockData";
 
 const EventPage = () => {
   const { slug } = useParams();
@@ -34,27 +33,50 @@ const EventPage = () => {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
 
+  // Check for user authentication from localStorage instead of Supabase
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
+    const userEmail = localStorage.getItem('user_email');
+    if (userEmail) {
+      setUser({ email: userEmail });
+    }
   }, []);
 
+  // Get event from mock data instead of Supabase
   const { data: event, isLoading } = useQuery({
     queryKey: ["event", slug],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("events")
-        .select(`
-          *,
-          tickets (*)
-        `)
-        .eq("slug", slug)
-        .eq("status", "published")
-        .single();
-
-      if (error) throw error;
-      return data;
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Find the event by slug
+      const foundEvent = mockEvents.find(e => e.slug === slug);
+      
+      if (!foundEvent) {
+        throw new Error("Event not found");
+      }
+      
+      // Add ticket types to the mock event
+      return {
+        ...foundEvent,
+        start_date: foundEvent.date,
+        end_date: new Date(new Date(foundEvent.date).getTime() + 3 * 60 * 60 * 1000).toISOString(), // 3 hours after start date
+        tickets: [
+          {
+            id: "standard-ticket",
+            name: "Standard Ticket",
+            price: foundEvent.price || 0,
+            type: foundEvent.price > 0 ? "paid" : "free",
+            remaining: Math.floor(Math.random() * 50) + 10,
+          },
+          {
+            id: "vip-ticket",
+            name: "VIP Ticket",
+            price: (foundEvent.price || 50) * 2,
+            type: "paid",
+            remaining: Math.floor(Math.random() * 20) + 5,
+          }
+        ]
+      };
     },
   });
 
@@ -82,76 +104,36 @@ const EventPage = () => {
       return;
     }
 
-    const ticket = event.tickets.find((t: any) => t.id === selectedTicket);
+    const ticket = event?.tickets.find((t: any) => t.id === selectedTicket);
     if (!ticket) return;
 
-    const totalAmount = ticket.price * parseInt(quantity);
     setIsRegistering(true);
 
     try {
-      const { data, error } = await supabase.from("orders").insert({
-        user_id: user.id,
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Store ticket in localStorage for frontend demo
+      const myTickets = JSON.parse(localStorage.getItem('my_tickets') || '[]');
+      const ticketId = `ticket-${Date.now()}`;
+      
+      const newTicket = {
+        id: ticketId,
         event_id: event.id,
-        ticket_id: selectedTicket,
+        event_title: event.title,
+        event_date: event.start_date,
+        event_location: event.location,
+        event_image: event.image_url || event.banner_image,
+        ticket_type: ticket.name,
+        price: ticket.price,
         quantity: parseInt(quantity),
-        total_amount: totalAmount,
-        payment_status: ticket.type === "free" || ticket.price === 0 ? "completed" : "pending",
-      }).select().single();
-
-      if (error) throw error;
-
-      console.log("Created order:", data);
+        total_amount: ticket.price * parseInt(quantity),
+        purchase_date: new Date().toISOString(),
+        status: "confirmed"
+      };
       
-      // Generate a unique ticket ID
-      const ticketId = `${data.id}-${event.id}-${selectedTicket}`;
-
-      console.log("Sending registration email to:", user.email);
-      const { error: emailError } = await supabase.functions.invoke(
-        "send-registration-email",
-        {
-          body: {
-            userEmail: user.email,
-            eventTitle: event.title,
-            eventDate: new Date(event.start_date).toLocaleDateString(),
-            eventLocation: event.location,
-            eventImageUrl: event.image_url || event.banner_image,
-            eventDescription: event.description || "No description available",
-            meetingUrl: event.is_virtual ? event.virtual_meeting_link : undefined,
-            ticketType: ticket.name,
-            quantity: parseInt(quantity),
-            ticketId: ticketId,
-          },
-        }
-      );
-
-      if (emailError) {
-        console.error("Error sending confirmation email:", emailError);
-      }
-
-      // Update ticket remaining count
-      const { error: updateError } = await supabase
-        .from("tickets")
-        .update({ 
-          remaining: ticket.remaining - parseInt(quantity) 
-        })
-        .eq("id", selectedTicket);
-      
-      if (updateError) {
-        console.error("Error updating ticket remaining count:", updateError);
-      }
-
-      // Update event stats
-      const { error: eventUpdateError } = await supabase
-        .from("events")
-        .update({ 
-          total_registrations: (event.total_registrations || 0) + parseInt(quantity),
-          total_revenue: (event.total_revenue || 0) + totalAmount
-        })
-        .eq("id", event.id);
-      
-      if (eventUpdateError) {
-        console.error("Error updating event stats:", eventUpdateError);
-      }
+      myTickets.push(newTicket);
+      localStorage.setItem('my_tickets', JSON.stringify(myTickets));
 
       setShowConfirmDialog(false);
       setShowSuccessDialog(true);
@@ -209,14 +191,26 @@ const EventPage = () => {
             <div className="flex items-center gap-2 text-gray-600">
               <Calendar className="h-5 w-5" />
               <span>
-                {new Date(event.start_date).toLocaleDateString()} -{" "}
-                {new Date(event.end_date).toLocaleDateString()}
+                {new Date(event.start_date).toLocaleDateString()} at {' '}
+                {new Date(event.start_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
               </span>
             </div>
             <div className="flex items-center gap-2 text-gray-600">
               <MapPin className="h-5 w-5" />
               <span>{event.location}</span>
             </div>
+            {event.category && (
+              <div className="flex items-center gap-2 text-gray-600">
+                <Tag className="h-5 w-5" />
+                <span>{event.category.name}</span>
+              </div>
+            )}
+            {event.tickets_available && (
+              <div className="flex items-center gap-2 text-gray-600">
+                <Users className="h-5 w-5" />
+                <span>{event.tickets_sold || 0} / {event.tickets_available} tickets sold</span>
+              </div>
+            )}
           </div>
           <p className="mt-4 text-gray-600">{event.description}</p>
         </div>
@@ -300,6 +294,12 @@ const EventPage = () => {
                   ? "Register Now" 
                   : "Get Ticket"}
               </Button>
+              
+              {!user && (
+                <p className="text-xs text-center text-muted-foreground">
+                  Sign in first to register for this event
+                </p>
+              )}
             </div>
           </Card>
         </div>
@@ -328,13 +328,23 @@ const EventPage = () => {
               <div className="flex items-center gap-2 text-gray-600">
                 <Calendar className="h-4 w-4" />
                 <span>
-                  {new Date(event?.start_date).toLocaleDateString()} -{" "}
-                  {new Date(event?.end_date).toLocaleDateString()}
+                  {new Date(event?.start_date).toLocaleDateString()} at {' '}
+                  {new Date(event?.start_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-gray-600">
                 <MapPin className="h-4 w-4" />
                 <span>{event?.location}</span>
+              </div>
+              <div className="border-t pt-2 mt-2">
+                <p className="font-medium">Ticket Details:</p>
+                <p>{event.tickets.find((t: any) => t.id === selectedTicket)?.name} x {quantity}</p>
+                <p className="font-bold mt-2">
+                  Total: {event.tickets.find((t: any) => t.id === selectedTicket)?.price === 0 ? 
+                    "Free" : 
+                    `${(event.tickets.find((t: any) => t.id === selectedTicket)?.price * parseInt(quantity)).toFixed(2)} ETB`
+                  }
+                </p>
               </div>
             </div>
           </div>
@@ -350,10 +360,10 @@ const EventPage = () => {
               {isRegistering ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Registering...
+                  Processing...
                 </>
               ) : (
-                "Confirm Registration"
+                "Confirm Purchase"
               )}
             </Button>
           </DialogFooter>
@@ -370,7 +380,7 @@ const EventPage = () => {
               Congratulations!
             </DialogTitle>
             <DialogDescription className="mt-2">
-              You have successfully registered for {event?.title}. Check your email for confirmation details.
+              You have successfully registered for {event?.title}. Your tickets are now available in your account.
             </DialogDescription>
           </div>
         </DialogContent>

@@ -19,6 +19,30 @@ interface EventCardProps {
   isHighlighted?: boolean;
 }
 
+// Array of placeholder images for different event types
+const PLACEHOLDER_IMAGES = [
+  'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80', // Event hall
+  'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80', // Concert
+  'https://images.unsplash.com/photo-1540575467063-178a50c2df87?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80', // Tech conference
+  'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80', // Food event
+  'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80', // Business meeting
+  'https://images.unsplash.com/photo-1526976668912-1a811878dd37?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80', // Art exhibition
+  'https://images.unsplash.com/photo-1508997449629-303059a039c0?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80', // Sports event
+  'https://images.unsplash.com/photo-1544531586-fde5298cdd40?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80', // Workshop
+];
+
+// Simple hash function to get a consistent image for the same event title
+const getHashedImage = (title: string) => {
+  let hash = 0;
+  for (let i = 0; i < title.length; i++) {
+    hash = ((hash << 5) - hash) + title.charCodeAt(i);
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  // Get positive value and mod with array length
+  const index = Math.abs(hash) % PLACEHOLDER_IMAGES.length;
+  return PLACEHOLDER_IMAGES[index];
+};
+
 export const EventCard: React.FC<EventCardProps> = ({
   title,
   date,
@@ -31,8 +55,8 @@ export const EventCard: React.FC<EventCardProps> = ({
   slug,
   isHighlighted = false
 }) => {
-  // If no image is provided, use a placeholder
-  const imageUrl = image || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80';
+  // If no image is provided, use a placeholder based on the event title
+  const imageUrl = image || getHashedImage(title);
 
   return (
     <Card className={cn(

@@ -1,432 +1,357 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
-import { Loader2, ChevronDown, ChevronUp, Download, Ticket } from "lucide-react";
-import { format } from "date-fns";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { toast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Calendar, 
+  Clock, 
+  MapPin, 
+  QrCode, 
+  Download,
+  Search,
+  Ticket,
+  Filter
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { format } from "date-fns";
+import { motion } from "framer-motion";
+import { useToast } from "@/components/ui/use-toast";
+import { Loader2 } from "lucide-react";
 
-export default function MyTickets() {
-  const [user, setUser] = useState<any>(null);
-  const [expandedTickets, setExpandedTickets] = useState<string[]>([]);
-  const [isAuthChecking, setIsAuthChecking] = useState(true);
+// Animation variants
+const container = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const item = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100 } }
+};
+
+interface Ticket {
+  id: string;
+  event_id: string;
+  event_title: string;
+  event_date: string;
+  event_location: string;
+  event_image: string;
+  ticket_type: string;
+  price: number;
+  quantity: number;
+  total_amount: number;
+  purchase_date: string;
+  status: string;
+}
+
+const MyTickets = () => {
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("upcoming");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterType, setFilterType] = useState("all");
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
-    async function checkAuth() {
+    // Simulate loading
+    const timer = setTimeout(() => {
       try {
-        const { data } = await supabase.auth.getSession();
-        if (!data.session) {
-          navigate("/auth");
-        } else {
-          setUser(data.session.user);
-        }
+        // Load tickets from localStorage
+        const storedTickets = JSON.parse(localStorage.getItem('my_tickets') || '[]');
+        setTickets(storedTickets);
       } catch (error) {
-        console.error("Auth check error:", error);
-        toast({
-          title: "Authentication Error",
-          description: "Please try logging in again",
-          variant: "destructive",
-        });
-        navigate("/auth");
+        console.error("Error loading tickets:", error);
       } finally {
-        setIsAuthChecking(false);
+        setIsLoading(false);
       }
-    }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  const downloadTicket = (ticket: Ticket) => {
+    // Simulate download action
+    toast({
+      title: "Ticket Downloaded",
+      description: "Your e-ticket has been downloaded successfully."
+    });
+  };
+
+  // Filter tickets based on search term and filter type
+  const filteredTickets = tickets.filter((ticket) => {
+    const matchesSearch = 
+      ticket.event_title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ticket.event_location.toLowerCase().includes(searchTerm.toLowerCase());
     
-    checkAuth();
-  }, [navigate]);
-
-  const { data: tickets, isLoading } = useQuery({
-    queryKey: ["my-tickets", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("orders")
-        .select(`
-          id,
-          quantity,
-          total_amount,
-          payment_status,
-          created_at,
-          event:events (
-            id,
-            title,
-            start_date,
-            end_date,
-            location,
-            banner_image,
-            description,
-            slug,
-            category:categories (
-              name
-            )
-          ),
-          ticket:tickets (
-            id,
-            price,
-            type,
-            name
-          )
-        `)
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id && !isAuthChecking,
+    if (filterType === "all") return matchesSearch;
+    return matchesSearch && ticket.ticket_type.toLowerCase().includes(filterType.toLowerCase());
   });
 
-  const toggleExpand = (ticketId: string) => {
-    setExpandedTickets(prev => 
-      prev.includes(ticketId) 
-        ? prev.filter(id => id !== ticketId)
-        : [...prev, ticketId]
-    );
-  };
-
-  const downloadTicket = async (order: any) => {
-    try {
-      const ticketId = `${order.id}-${order.event.id}-${order.ticket.id}`;
-      const qrCodeDataUrl = await generateQRCode(ticketId);
-      
-      // Generate PDF 
-      const pdfDoc = await generatePDF(order, qrCodeDataUrl, ticketId);
-      
-      // Create a download link
-      const blob = new Blob([pdfDoc], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${order.event.title.replace(/\s+/g, '-')}-ticket.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      
-      // Clean up
-      URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
-      toast({
-        title: "Ticket Downloaded",
-        description: "Your ticket has been successfully downloaded",
-      });
-    } catch (error) {
-      console.error("Error downloading ticket:", error);
-      toast({
-        title: "Download Failed",
-        description: "There was a problem downloading your ticket. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const generateQRCode = async (ticketId: string) => {
-    // We'll use a dynamic import for QRCode to keep the bundle size small
-    const QRCode = (await import("qrcode")).default;
-    
-    return await QRCode.toDataURL(ticketId, {
-      width: 200,
-      margin: 2,
-      color: {
-        dark: "#F97316",
-        light: "#FFFFFF",
-      },
-    });
-  };
-
-  // This is a client-side function to generate a basic PDF using PDFLib
-  const generatePDF = async (order: any, qrCodeDataUrl: string, ticketId: string) => {
-    const { PDFDocument, rgb, StandardFonts } = await import("pdf-lib");
-    
-    // Create a new PDF
-    const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([595, 842]); // A4 size
-    
-    // Load fonts
-    const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    
-    // Set title
-    page.drawText('EVENTIFY', {
-      x: 250,
-      y: 800,
-      size: 24,
-      font: helveticaBold,
-      color: rgb(0.976, 0.451, 0.086), // #F97316
-    });
-    
-    page.drawText(`Event Ticket: ${order.event.title}`, {
-      x: 150,
-      y: 760,
-      size: 20,
-      font: helveticaBold,
-      color: rgb(0, 0, 0),
-    });
-    
-    // Draw a line
-    page.drawLine({
-      start: { x: 50, y: 740 },
-      end: { x: 545, y: 740 },
-      thickness: 2,
-      color: rgb(0.976, 0.451, 0.086), // #F97316
-    });
-    
-    // Event details
-    page.drawText(`Date: ${format(new Date(order.event.start_date), "PPP")}`, {
-      x: 50,
-      y: 700,
-      size: 12,
-      font: helveticaFont,
-    });
-    
-    page.drawText(`Location: ${order.event.location}`, {
-      x: 50,
-      y: 680,
-      size: 12,
-      font: helveticaFont,
-    });
-    
-    page.drawText(`Ticket Type: ${order.ticket.name}`, {
-      x: 50,
-      y: 660,
-      size: 12,
-      font: helveticaFont,
-    });
-    
-    page.drawText(`Quantity: ${order.quantity}`, {
-      x: 50,
-      y: 640,
-      size: 12,
-      font: helveticaFont,
-    });
-    
-    page.drawText(`Ticket ID: ${ticketId}`, {
-      x: 50,
-      y: 620,
-      size: 12,
-      font: helveticaFont,
-    });
-    
-    page.drawText(`Event ID: ${order.event.id}`, {
-      x: 50,
-      y: 600,
-      size: 12,
-      font: helveticaFont,
-    });
-    
-    // Add QR code
-    const qrCodeImage = await pdfDoc.embedPng(qrCodeDataUrl);
-    const qrCodeDims = qrCodeImage.scale(0.8);
-    
-    page.drawImage(qrCodeImage, {
-      x: page.getWidth() / 2 - qrCodeDims.width / 2,
-      y: 400,
-      width: qrCodeDims.width,
-      height: qrCodeDims.height,
-    });
-    
-    page.drawText('Please present this QR code when attending the event.', {
-      x: 150,
-      y: 380,
-      size: 10,
-      font: helveticaFont,
-    });
-    
-    // Footer
-    page.drawText('Powered by Eventify', {
-      x: 450,
-      y: 50,
-      size: 10,
-      font: helveticaFont,
-      color: rgb(0.4, 0.4, 0.4),
-    });
-    
-    // Return the PDF as bytes
-    return await pdfDoc.save();
-  };
-
-  if (isAuthChecking || isLoading) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[#F97316]" />
-      </div>
-    );
-  }
+  // Split tickets into upcoming and past
+  const now = new Date();
+  const upcomingTickets = filteredTickets.filter(
+    ticket => new Date(ticket.event_date) >= now
+  );
+  const pastTickets = filteredTickets.filter(
+    ticket => new Date(ticket.event_date) < now
+  );
 
   return (
-    <div className="container py-8 px-4 md:px-8">
-      <h1 className="mb-8 text-2xl md:text-3xl font-bold flex items-center gap-2">
-        <Ticket className="h-6 w-6 text-[#F97316]" />
-        My Tickets
-      </h1>
-      
-      {tickets?.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-4 py-8 text-center">
-          <div className="h-24 w-24 rounded-full bg-orange-100 flex items-center justify-center mb-4">
-            <Ticket className="h-12 w-12 text-[#F97316]" />
-          </div>
-          <p className="text-lg text-gray-600 dark:text-gray-300">You haven't purchased any tickets yet.</p>
-          <Button 
-            onClick={() => navigate("/events")}
-            className="bg-[#F97316] hover:bg-[#FB923C]"
-          >
-            Browse Events
-          </Button>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {tickets?.map((order: any) => {
-            const ticketId = `${order.id}-${order.event.id}-${order.ticket.id}`;
-            const isExpanded = expandedTickets.includes(ticketId);
-            const isFreeTicket = order.ticket.type === "free" || parseFloat(order.ticket.price) === 0;
-            const displayStatus = isFreeTicket ? "confirmed" : order.payment_status;
-            const isPastEvent = new Date(order.event.end_date) < new Date();
+    <div className="container py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold">My Tickets</h1>
+        <p className="text-muted-foreground">Manage your event tickets</p>
+      </div>
 
-            return (
-              <div
-                key={ticketId}
-                className="overflow-hidden rounded-lg border bg-white shadow transition-all duration-200 dark:bg-gray-800 dark:border-gray-700"
-              >
-                <div className="p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-                    <div className="space-y-1">
-                      <h3 className="text-lg font-semibold dark:text-white">{order.event.title}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {format(new Date(order.event.start_date), "PPP")} at {order.event.location}
-                      </p>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm text-gray-600 dark:text-gray-300">
-                          {order.ticket.name} × {order.quantity}
-                        </span>
-                        <span className="text-sm text-gray-600 dark:text-gray-300">•</span>
-                        <span className="text-sm text-gray-600 dark:text-gray-300">
-                          {order.ticket.type === "free" ? "Free" : `${order.total_amount} ETB`}
-                        </span>
-                        <span className={`ml-2 rounded-full px-2 py-1 text-xs ${
-                          displayStatus === "confirmed" || displayStatus === "completed"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                            : displayStatus === "pending"
-                            ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-                            : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-                        }`}>
-                          {displayStatus}
-                        </span>
-                        {isPastEvent && (
-                          <span className="ml-2 rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                            Past event
-                          </span>
-                        )}
-                      </div>
+      <div className="mb-6 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+        <div className="relative w-full md:w-auto md:min-w-[300px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search tickets..."
+            className="pl-9"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All tickets</SelectItem>
+              <SelectItem value="standard">Standard tickets</SelectItem>
+              <SelectItem value="vip">VIP tickets</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-6">
+          <TabsTrigger value="upcoming" className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" /> Upcoming
+            {upcomingTickets.length > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5 px-2">
+                {upcomingTickets.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="past" className="flex items-center gap-2">
+            <Clock className="h-4 w-4" /> Past
+            {pastTickets.length > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5 px-2">
+                {pastTickets.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="upcoming">
+          {isLoading ? (
+            <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+              {[...Array(3)].map((_, index) => (
+                <Card key={index} className="animate-pulse">
+                  <div className="h-48 bg-gray-200 dark:bg-gray-800 rounded-t-lg" />
+                  <CardHeader>
+                    <div className="h-6 bg-gray-200 dark:bg-gray-800 rounded w-3/4 mb-2" />
+                    <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-1/2" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-full" />
+                      <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-full" />
                     </div>
-                    <div className="flex gap-2 mt-2 sm:mt-0">
+                  </CardContent>
+                  <CardFooter>
+                    <div className="h-10 bg-gray-200 dark:bg-gray-800 rounded w-full" />
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          ) : upcomingTickets.length > 0 ? (
+            <motion.div
+              variants={container}
+              initial="hidden"
+              animate="show"
+              className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+            >
+              {upcomingTickets.map((ticket) => (
+                <motion.div key={ticket.id} variants={item}>
+                  <Card className="overflow-hidden h-full flex flex-col">
+                    <div className="relative">
+                      <img
+                        src={ticket.event_image || "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"}
+                        alt={ticket.event_title}
+                        className="h-48 w-full object-cover"
+                      />
+                      <Badge className="absolute top-2 right-2 bg-[#F97316]">
+                        {ticket.ticket_type}
+                      </Badge>
+                    </div>
+                    <CardHeader>
+                      <CardTitle className="line-clamp-1">{ticket.event_title}</CardTitle>
+                      <CardDescription>
+                        {format(new Date(ticket.event_date), "EEEE, MMMM d, yyyy")}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex-grow">
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-start">
+                          <Clock className="h-4 w-4 mr-2 mt-0.5 text-muted-foreground" />
+                          <span>{format(new Date(ticket.event_date), "h:mm a")}</span>
+                        </div>
+                        <div className="flex items-start">
+                          <MapPin className="h-4 w-4 mr-2 mt-0.5 text-muted-foreground" />
+                          <span className="line-clamp-1">{ticket.event_location}</span>
+                        </div>
+                        <div className="flex items-start">
+                          <Ticket className="h-4 w-4 mr-2 mt-0.5 text-muted-foreground" />
+                          <span>{ticket.quantity} {ticket.quantity > 1 ? 'tickets' : 'ticket'}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="border-t pt-4 flex gap-2">
                       <Button
                         variant="outline"
-                        size="sm"
-                        className="border-[#F97316] text-[#F97316] hover:bg-[#F97316]/10"
-                        title="Download Ticket"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          downloadTicket(order);
-                        }}
+                        className="flex-1"
+                        onClick={() => downloadTicket(ticket)}
                       >
-                        <Download className="h-4 w-4 mr-1 sm:mr-2" />
-                        <span className="hidden sm:inline">Download</span>
+                        <Download className="mr-2 h-4 w-4" /> Download
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleExpand(ticketId)}
-                        title={isExpanded ? "Collapse" : "Expand"}
+                      <Button 
+                        className="flex-1 bg-[#F97316] hover:bg-[#FB923C]"
+                        onClick={() => navigate(`/event/${ticket.event_id}`)}
                       >
-                        {isExpanded ? (
-                          <ChevronUp className="h-5 w-5" />
-                        ) : (
-                          <ChevronDown className="h-5 w-5" />
-                        )}
+                        <QrCode className="mr-2 h-4 w-4" /> View
                       </Button>
-                    </div>
-                  </div>
-                  
-                  {isExpanded && (
-                    <div className="mt-4 space-y-4 border-t pt-4 dark:border-gray-700">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <img
-                            src={order.event.banner_image}
-                            alt={order.event.title}
-                            className="h-48 w-full rounded-lg object-cover"
-                          />
+                    </CardFooter>
+                  </Card>
+                </motion.div>
+              ))}
+            </motion.div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="rounded-full h-20 w-20 bg-muted flex items-center justify-center mx-auto mb-4">
+                <Ticket className="h-10 w-10 text-muted-foreground" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">No upcoming tickets</h3>
+              <p className="text-muted-foreground mb-6">
+                You don't have any upcoming events. Explore events and get tickets.
+              </p>
+              <Button 
+                className="bg-[#F97316] hover:bg-[#FB923C]"
+                onClick={() => navigate("/events")}
+              >
+                Explore Events
+              </Button>
+            </div>
+          )}
+        </TabsContent>
 
-                          <div className="mt-4">
-                            <h4 className="font-medium dark:text-white">Event Description</h4>
-                            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{order.event.description}</p>
-                          </div>
+        <TabsContent value="past">
+          {isLoading ? (
+            <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+              {[...Array(3)].map((_, index) => (
+                <Card key={index} className="animate-pulse">
+                  <div className="h-48 bg-gray-200 dark:bg-gray-800 rounded-t-lg" />
+                  <CardHeader>
+                    <div className="h-6 bg-gray-200 dark:bg-gray-800 rounded w-3/4 mb-2" />
+                    <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-1/2" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-full" />
+                      <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-full" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : pastTickets.length > 0 ? (
+            <motion.div
+              variants={container}
+              initial="hidden"
+              animate="show"
+              className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+            >
+              {pastTickets.map((ticket) => (
+                <motion.div key={ticket.id} variants={item}>
+                  <Card className="overflow-hidden h-full flex flex-col opacity-80">
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-black/40 z-10 flex items-center justify-center">
+                        <Badge className="bg-gray-700">Past Event</Badge>
+                      </div>
+                      <img
+                        src={ticket.event_image || "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"}
+                        alt={ticket.event_title}
+                        className="h-48 w-full object-cover"
+                      />
+                    </div>
+                    <CardHeader>
+                      <CardTitle className="line-clamp-1">{ticket.event_title}</CardTitle>
+                      <CardDescription>
+                        {format(new Date(ticket.event_date), "EEEE, MMMM d, yyyy")}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex-grow">
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-start">
+                          <Clock className="h-4 w-4 mr-2 mt-0.5 text-muted-foreground" />
+                          <span>{format(new Date(ticket.event_date), "h:mm a")}</span>
                         </div>
-                        
-                        <div className="flex flex-col items-center justify-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                          <h4 className="text-lg font-medium mb-4 dark:text-white">Your Ticket</h4>
-                          
-                          <div className="bg-white p-4 rounded-lg shadow-md mb-4 dark:bg-gray-800">
-                            <TicketQrCode 
-                              ticketId={ticketId}
-                              className="w-full max-w-[200px] h-auto mx-auto"
-                            />
-                          </div>
-                          
-                          <p className="text-sm text-gray-500 mb-4 text-center dark:text-gray-400">
-                            Present this QR code when attending the event
-                          </p>
-                          
-                          <Button
-                            onClick={() => downloadTicket(order)}
-                            className="bg-[#F97316] hover:bg-[#FB923C] w-full"
-                          >
-                            <Download className="mr-2 h-4 w-4" />
-                            Download Ticket
-                          </Button>
+                        <div className="flex items-start">
+                          <MapPin className="h-4 w-4 mr-2 mt-0.5 text-muted-foreground" />
+                          <span className="line-clamp-1">{ticket.event_location}</span>
+                        </div>
+                        <div className="flex items-start">
+                          <Ticket className="h-4 w-4 mr-2 mt-0.5 text-muted-foreground" />
+                          <span>{ticket.quantity} {ticket.quantity > 1 ? 'tickets' : 'ticket'}</span>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </motion.div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="rounded-full h-20 w-20 bg-muted flex items-center justify-center mx-auto mb-4">
+                <Clock className="h-10 w-10 text-muted-foreground" />
               </div>
-            );
-          })}
-        </div>
-      )}
+              <h3 className="text-xl font-semibold mb-2">No past tickets</h3>
+              <p className="text-muted-foreground mb-6">
+                You haven't attended any events yet. Check out upcoming events!
+              </p>
+              <Button 
+                className="bg-[#F97316] hover:bg-[#FB923C]"
+                onClick={() => navigate("/events")}
+              >
+                Explore Events
+              </Button>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
-}
+};
 
-// QR Code component - renamed to avoid conflict with lucide-react QrCode
-function TicketQrCode({ ticketId, className }: { ticketId: string, className?: string }) {
-  const [qrCode, setQrCode] = useState<string | null>(null);
-  
-  useEffect(() => {
-    async function generateQR() {
-      try {
-        const QRCode = (await import("qrcode")).default;
-        const code = await QRCode.toDataURL(ticketId, {
-          width: 200,
-          margin: 2,
-          color: {
-            dark: "#F97316",
-            light: "#FFFFFF",
-          },
-        });
-        setQrCode(code);
-      } catch (err) {
-        console.error("QR code generation error:", err);
-      }
-    }
-    
-    generateQR();
-  }, [ticketId]);
-  
-  if (!qrCode) {
-    return <Loader2 className="h-8 w-8 animate-spin text-[#F97316]" />;
-  }
-  
-  return <img src={qrCode} alt="Ticket QR Code" className={className} />;
-}
+export default MyTickets;

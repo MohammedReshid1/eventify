@@ -14,7 +14,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -40,73 +39,24 @@ export default function AdminLogin() {
     },
   });
 
-  // Handle form submission
+  // Handle form submission - no backend interaction
   const onSubmit = async (values: LoginFormValues) => {
     setIsLoading(true);
-    try {
-      // Sign in with Supabase Auth
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: values.email,
-        password: values.password,
-      });
-
-      if (error) throw error;
-
-      // If in development mode, set admin auth
-      if (import.meta.env.DEV) {
-        localStorage.setItem("findevent_admin_auth", "true");
-        // Dispatch custom event to notify other components about auth change
-        window.dispatchEvent(new Event("admin-auth-changed"));
-        
-        toast({
-          title: "Success!",
-          description: "You are now logged in as admin.",
-        });
-        
-        navigate("/admin");
-        return;
-      }
-
-      // In production, check user role
-      if (data.user) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', data.user.id)
-          .single();
-
-        if (profileError) throw profileError;
-
-        if (profileData?.role === 'admin') {
-          localStorage.setItem("findevent_admin_auth", "true");
-          // Dispatch custom event to notify other components about auth change
-          window.dispatchEvent(new Event("admin-auth-changed"));
-          
-          toast({
-            title: "Success!",
-            description: "You are now logged in as admin.",
-          });
-          
-          navigate("/admin");
-        } else {
-          // User is not an admin
-          await supabase.auth.signOut();
-          toast({
-            title: "Access Denied",
-            description: "You don't have admin privileges.",
-            variant: "destructive",
-          });
-        }
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to sign in. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // For testing purposes, accept any credentials
+    localStorage.setItem("findevent_admin_auth", "true");
+    window.dispatchEvent(new Event("admin-auth-changed"));
+    
+    toast({
+      title: "Success!",
+      description: "You are now logged in as admin.",
+    });
+    
+    setIsLoading(false);
+    navigate("/admin");
   };
 
   return (
@@ -157,12 +107,19 @@ export default function AdminLogin() {
                   "Sign In"
                 )}
               </Button>
+
+              <p className="text-center text-xs text-muted-foreground mt-2">
+                For testing: You can use any email/password combination
+              </p>
             </form>
           </Form>
         </CardContent>
         <CardFooter className="flex flex-col">
           <p className="mt-2 text-center text-sm text-muted-foreground">
-            <span className="font-medium">Demo credentials:</span> admin@eventify.com / admin123
+            <span className="font-medium">Or use the login helper:</span>{" "}
+            <Button variant="link" className="p-0" onClick={() => navigate('/admin/login-helper')}>
+              One-click Admin Login
+            </Button>
           </p>
         </CardFooter>
       </Card>
