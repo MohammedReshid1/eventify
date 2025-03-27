@@ -29,26 +29,6 @@ import { supabase } from "@/integrations/supabase/client";
 // Create a QueryClient instance
 const queryClient = new QueryClient();
 
-// Make sure the theme applies correctly on Vercel
-const fixVercelTheme = () => {
-  if (typeof document !== 'undefined') {
-    const theme = localStorage.getItem('eventify-theme') || 'system';
-    const root = document.documentElement;
-    
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
-        ? 'dark'
-        : 'light';
-      root.classList.add(systemTheme);
-    } else {
-      root.classList.add(theme);
-    }
-  }
-};
-
-// Execute immediately
-fixVercelTheme();
-
 const App = () => {
   const [isAdminRoute, setIsAdminRoute] = useState(false);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);

@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -171,4 +170,72 @@
   .dark .category-button:not(.active) {
     @apply bg-gray-800 text-orange-300 hover:bg-gray-700;
   }
+
+  /* Fixing tabs in dark mode for admin panel */
+  .dark [role="tablist"] {
+    @apply bg-gray-800 border-gray-700;
+  }
+  
+  .dark [role="tab"] {
+    @apply text-gray-300 hover:text-white;
+  }
+  
+  .dark [role="tab"][data-state="active"] {
+    @apply bg-gray-900 text-white;
+  }
+  
+  .dark [role="tab"][data-state="inactive"] {
+    @apply hover:bg-gray-700;
+  }
+  
+  /* Admin table dark mode fixes */
+  .dark table {
+    @apply bg-gray-900 border-gray-700;
+  }
+  
+  .dark th {
+    @apply bg-gray-800 text-gray-200 border-gray-700;
+  }
+  
+  .dark td {
+    @apply border-gray-700 text-gray-300;
+  }
+  
+  .dark select {
+    @apply bg-gray-800 border-gray-700 text-gray-200;
+  }
+  
+  /* Fix for inputs and buttons in dark mode */
+  .dark input,
+  .dark textarea {
+    @apply bg-gray-800 border-gray-700 text-gray-200 placeholder:text-gray-500;
+  }
+  
+  .dark input:focus,
+  .dark textarea:focus,
+  .dark select:focus {
+    @apply border-gray-500 ring-gray-500;
+  }
+  
+  /* Ensure orange buttons remain visible in dark mode */
+  .dark button.bg-\[\#F97316\] {
+    @apply text-white;
+  }
+  
+  /* Ensure animations work in dark mode */
+  .dark .animate-pulse {
+    @apply bg-gray-700;
+  }
+}
+
+/* Fix for dark mode transitions */
+* {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Override root transitions to prevent flashing */
+:root, html, body {
+  transition: none !important;
 }
