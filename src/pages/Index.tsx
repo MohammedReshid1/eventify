@@ -45,7 +45,9 @@ export default function Index() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!searchTerm && !selectedCategory && !selectedLocation) {
+    if ((!searchTerm || searchTerm.trim() === '') && 
+        (!selectedCategory || selectedCategory === 'all') && 
+        (!selectedLocation || selectedLocation === 'all')) {
       toast({
         title: "Please enter search criteria",
         description: "Enter a keyword, select a category, or choose a location to search for events.",
@@ -57,8 +59,8 @@ export default function Index() {
     // Redirect to events page with search params
     const params = new URLSearchParams();
     if (searchTerm) params.set("q", searchTerm);
-    if (selectedCategory) params.set("category", selectedCategory);
-    if (selectedLocation) params.set("location", selectedLocation);
+    if (selectedCategory && selectedCategory !== 'all') params.set("category", selectedCategory);
+    if (selectedLocation && selectedLocation !== 'all') params.set("location", selectedLocation);
     
     navigate(`/events?${params.toString()}`);
   };
@@ -117,7 +119,7 @@ export default function Index() {
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Categories</SelectItem>
+                  <SelectItem value="all">All Categories</SelectItem>
                   {categories?.map((category) => (
                     <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>
                   ))}
@@ -129,7 +131,7 @@ export default function Index() {
                   <SelectValue placeholder="Location" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Locations</SelectItem>
+                  <SelectItem value="all">All Locations</SelectItem>
                   {uniqueLocations.map((location) => (
                     <SelectItem key={location} value={location}>{location}</SelectItem>
                   ))}
