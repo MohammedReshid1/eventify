@@ -8,8 +8,6 @@ import { MobileNavbar } from "@/components/MobileNavbar";
 import { Footer } from "@/components/Footer";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 import LoadingScreen from "@/components/LoadingScreen";
-import ErrorBoundary from "@/components/ErrorBoundary";
-import DevTools from "@/components/DevTools";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -27,24 +25,29 @@ import AdminDashboard from "./pages/AdminDashboard";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import TestPage from "./pages/TestPage";
 
-// Create a QueryClient instance with error logging
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      onError: (error) => {
-        console.error("Query error:", error);
-      },
-    },
-    mutations: {
-      onError: (error) => {
-        console.error("Mutation error:", error);
-      },
-    },
-  },
-});
+// Create a QueryClient instance
+const queryClient = new QueryClient();
+
+// Make sure the theme applies correctly on Vercel
+const fixVercelTheme = () => {
+  if (typeof document !== 'undefined') {
+    const theme = localStorage.getItem('eventify-theme') || 'system';
+    const root = document.documentElement;
+    
+    if (theme === 'system') {
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light';
+      root.classList.add(systemTheme);
+    } else {
+      root.classList.add(theme);
+    }
+  }
+};
+
+// Execute immediately
+fixVercelTheme();
 
 const App = () => {
   const [isAdminRoute, setIsAdminRoute] = useState(false);
@@ -119,94 +122,90 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="system" storageKey="eventify-theme">
-        <ErrorBoundary>
-          <DevTools />
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            {isLoading || !appReady ? (
-              <LoadingScreen />
-            ) : (
-              <div className="flex min-h-screen flex-col">
-                {!isAdminRoute && <Navbar isAdminLoggedIn={isAdminLoggedIn} />}
-                <main className={`flex-1 ${!isAdminRoute ? 'pb-20 md:pb-0' : ''}`}>
-                  <Routes>
-                    {/* Main Website Routes */}
-                    <Route path="/" element={<Index />} />
-                    <Route path="/test" element={<TestPage />} />
-                    <Route path="/auth" element={<Auth />} />
-                    <Route path="/create-event" element={<CreateEvent />} />
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/event/:slug" element={<EventPage />} />
-                    <Route path="/events" element={<Events />} />
-                    <Route path="/contact" element={<Contact />} />
-                    <Route path="/my-tickets" element={<MyTickets />} />
-                    <Route path="/privacy" element={<Privacy />} />
-                    <Route path="/terms" element={<Terms />} />
-                    <Route path="/faq" element={<Contact />} />
-                    <Route path="/help" element={<Contact />} />
-                    <Route path="/cookies" element={<Privacy />} />
-                    
-                    {/* Admin Routes */}
-                    <Route path="/admin/login" element={<AdminLogin />} />
-                    <Route path="/admin/login-helper" element={<AdminLoginHelper />} />
-                    
-                    {/* Protected Admin Routes */}
-                    <Route path="/admin" element={
-                      <AdminProtectedRoute>
-                        <AdminDashboard />
-                      </AdminProtectedRoute>
-                    } />
-                    <Route path="/admin/events" element={
-                      <AdminProtectedRoute>
-                        <AdminDashboard />
-                      </AdminProtectedRoute>
-                    } />
-                    <Route path="/admin/users" element={
-                      <AdminProtectedRoute>
-                        <AdminDashboard />
-                      </AdminProtectedRoute>
-                    } />
-                    <Route path="/admin/tickets" element={
-                      <AdminProtectedRoute>
-                        <AdminDashboard />
-                      </AdminProtectedRoute>
-                    } />
-                    <Route path="/admin/analytics" element={
-                      <AdminProtectedRoute>
-                        <AdminDashboard />
-                      </AdminProtectedRoute>
-                    } />
-                    <Route path="/admin/settings" element={
-                      <AdminProtectedRoute>
-                        <AdminDashboard />
-                      </AdminProtectedRoute>
-                    } />
-                    
-                    {/* Other admin routes preserved but commented out for now */}
-                    {/* 
-                    <Route path="/admin/*" element={
-                      <Routes>
-                        <Route path="dashboard" element={
-                          <AdminProtectedRoute>
-                            <AdminDashboard />
-                          </AdminProtectedRoute>
-                        } />
-                        // ... other admin routes ...
-                      </Routes>
-                    } />
-                    */}
-                    
-                    {/* Fallback route */}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </main>
-                {!isAdminRoute && <Footer />}
-                {!isAdminRoute && <MobileNavbar />}
-              </div>
-            )}
-          </TooltipProvider>
-        </ErrorBoundary>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          {isLoading || !appReady ? (
+            <LoadingScreen />
+          ) : (
+            <div className="flex min-h-screen flex-col">
+              {!isAdminRoute && <Navbar isAdminLoggedIn={isAdminLoggedIn} />}
+              <main className={`flex-1 ${!isAdminRoute ? 'pb-20 md:pb-0' : ''}`}>
+                <Routes>
+                  {/* Main Website Routes */}
+                  <Route path="/" element={<Index />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/create-event" element={<CreateEvent />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/event/:slug" element={<EventPage />} />
+                  <Route path="/events" element={<Events />} />
+                  <Route path="/contact" element={<Contact />} />
+                  <Route path="/my-tickets" element={<MyTickets />} />
+                  <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/terms" element={<Terms />} />
+                  <Route path="/faq" element={<Contact />} />
+                  <Route path="/help" element={<Contact />} />
+                  <Route path="/cookies" element={<Privacy />} />
+                  
+                  {/* Admin Routes */}
+                  <Route path="/admin/login" element={<AdminLogin />} />
+                  <Route path="/admin/login-helper" element={<AdminLoginHelper />} />
+                  
+                  {/* Protected Admin Routes */}
+                  <Route path="/admin" element={
+                    <AdminProtectedRoute>
+                      <AdminDashboard />
+                    </AdminProtectedRoute>
+                  } />
+                  <Route path="/admin/events" element={
+                    <AdminProtectedRoute>
+                      <AdminDashboard />
+                    </AdminProtectedRoute>
+                  } />
+                  <Route path="/admin/users" element={
+                    <AdminProtectedRoute>
+                      <AdminDashboard />
+                    </AdminProtectedRoute>
+                  } />
+                  <Route path="/admin/tickets" element={
+                    <AdminProtectedRoute>
+                      <AdminDashboard />
+                    </AdminProtectedRoute>
+                  } />
+                  <Route path="/admin/analytics" element={
+                    <AdminProtectedRoute>
+                      <AdminDashboard />
+                    </AdminProtectedRoute>
+                  } />
+                  <Route path="/admin/settings" element={
+                    <AdminProtectedRoute>
+                      <AdminDashboard />
+                    </AdminProtectedRoute>
+                  } />
+                  
+                  {/* Other admin routes preserved but commented out for now */}
+                  {/* 
+                  <Route path="/admin/*" element={
+                    <Routes>
+                      <Route path="dashboard" element={
+                        <AdminProtectedRoute>
+                          <AdminDashboard />
+                        </AdminProtectedRoute>
+                      } />
+                      // ... other admin routes ...
+                    </Routes>
+                  } />
+                  */}
+                  
+                  {/* Fallback route */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </main>
+              {!isAdminRoute && <Footer />}
+              {!isAdminRoute && <MobileNavbar />}
+            </div>
+          )}
+        </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

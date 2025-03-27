@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
@@ -11,7 +11,7 @@ interface EventCardProps {
   date: string;
   time?: string;
   location: string;
-  price: string | number;
+  price: string;
   image: string;
   category: string;
   isFree?: boolean;
@@ -55,20 +55,13 @@ export const EventCard: React.FC<EventCardProps> = ({
   slug,
   isHighlighted = false
 }) => {
-  const [imageError, setImageError] = useState(false);
-  
-  // If no image is provided or there was an error loading the image, use a placeholder
-  const imageUrl = (image && !imageError) ? image : getHashedImage(title);
-
-  // Format price nicely, handling different types
-  const formattedPrice = typeof price === 'number' 
-    ? price.toFixed(2) 
-    : (typeof price === 'string' ? price : '0.00');
+  // If no image is provided, use a placeholder based on the event title
+  const imageUrl = image || getHashedImage(title);
 
   return (
     <Card className={cn(
-      "overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 event-card w-full h-full flex flex-col min-h-[400px] shadow-md",
-      isHighlighted && "ring-2 ring-[#F97316] shadow-lg"
+      "overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 event-card w-full h-full flex flex-col min-h-[400px]",
+      isHighlighted && "ring-2 ring-[#F97316] shadow-md"
     )}>
       <Link to={`/event/${slug}`} className="group">
         <div className="relative overflow-hidden">
@@ -81,10 +74,6 @@ export const EventCard: React.FC<EventCardProps> = ({
             src={imageUrl}
             alt={title}
             className="h-64 w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            onError={() => {
-              console.log(`Image load error for event: ${title}`);
-              setImageError(true);
-            }}
           />
           <Badge className="absolute right-2 top-2 bg-[#F97316] text-white hover:bg-[#F97316] z-20">
             {category}
@@ -115,7 +104,7 @@ export const EventCard: React.FC<EventCardProps> = ({
             <div className="pt-2 flex items-center">
               <Tag className="mr-2 h-4 w-4 text-[#F97316]" />
               <span className="font-medium text-foreground">
-                {isFree ? "Free Event" : `${formattedPrice} ETB`}
+                {isFree ? "Free Event" : `${price} ETB`}
               </span>
             </div>
           </div>
@@ -124,7 +113,7 @@ export const EventCard: React.FC<EventCardProps> = ({
       <div className="px-5 pb-5 mt-auto">
         <Link to={`/event/${slug}`}>
           <Button 
-            className="w-full orange-button py-5 h-auto font-medium rounded-md"
+            className="w-full bg-[#F97316] hover:bg-[#FB923C] text-sm py-5 h-auto font-medium rounded-md"
           >
             {isFree ? "Register Now" : "Get Ticket"}
           </Button>

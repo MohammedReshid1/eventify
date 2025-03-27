@@ -20,6 +20,27 @@ const initialState: ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 
+// Script to initially set the theme before any rendering to avoid flash of wrong theme
+const colorThemeScript = `
+(function() {
+  try {
+    // Try to get theme mode from localStorage
+    const storageKey = "eventify-theme";
+    let theme = localStorage.getItem(storageKey);
+    
+    // If not available or set to system, check system preference
+    if (!theme || theme === 'system') {
+      theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(theme);
+  } catch (e) {
+    console.error('Error accessing localStorage:', e);
+  }
+})();
+`;
+
 export function ThemeProvider({
   children,
   defaultTheme = "system",
@@ -30,33 +51,35 @@ export function ThemeProvider({
     () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
   )
 
-  // Apply the theme to document
   useEffect(() => {
-    const root = window.document.documentElement;
+    const root = window.document.documentElement
     
-    // Remove both classes first to ensure clean state
-    root.classList.remove("light", "dark");
+    // Check if a theme was already applied by our script in index.html
+    const currentAppliedTheme = root.classList.contains("dark") ? "dark" : 
+                                root.classList.contains("light") ? "light" : null;
+    
+    // Sync with our initial state if needed
+    if (currentAppliedTheme && theme !== currentAppliedTheme && 
+        (theme === "light" || theme === "dark")) {
+      root.classList.remove(currentAppliedTheme);
+      root.classList.add(theme);
+    }
     
     if (theme === "system") {
       const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
         ? "dark"
-        : "light";
+        : "light"
       
+      root.classList.remove("light", "dark");
       root.classList.add(systemTheme);
-      root.setAttribute('data-theme', systemTheme);
-      
-      // Update color scheme
-      root.style.colorScheme = systemTheme;
-    } else {
-      root.classList.add(theme);
-      root.setAttribute('data-theme', theme);
-      
-      // Update color scheme
-      root.style.colorScheme = theme;
+      return;
     }
+
+    root.classList.remove("light", "dark");
+    root.classList.add(theme);
   }, [theme]);
 
-  // Listen for system theme changes
+  // Listen for system color scheme changes when theme is set to system
   useEffect(() => {
     if (theme !== 'system') {
       return;
@@ -70,8 +93,6 @@ export function ThemeProvider({
       
       root.classList.remove('light', 'dark');
       root.classList.add(systemTheme);
-      root.setAttribute('data-theme', systemTheme);
-      root.style.colorScheme = systemTheme;
     };
     
     mediaQuery.addEventListener('change', handleChange);
@@ -87,9 +108,13 @@ export function ThemeProvider({
   }
 
   return (
-    <ThemeProviderContext.Provider {...props} value={value}>
-      {children}
-    </ThemeProviderContext.Provider>
+    <>
+      {/* Inject script into head to set theme before React loads */}
+      <script dangerouslySetInnerHTML={{ __html: colorThemeScript }} />
+      <ThemeProviderContext.Provider {...props} value={value}>
+        {children}
+      </ThemeProviderContext.Provider>
+    </>
   )
 }
 
