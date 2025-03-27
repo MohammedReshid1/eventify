@@ -1,45 +1,6 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <!-- Prevent flash of wrong theme -->
-    <script>
-      (function() {
-        try {
-          // Force immediate execution before any rendering
-          const storageKey = "eventify-theme";
-          let theme = localStorage.getItem(storageKey);
-          
-          if (!theme || theme === 'system') {
-            // Check system preference
-            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-          }
-          
-          // Set a fallback in case theme is somehow invalid
-          if (theme !== 'dark' && theme !== 'light') {
-            theme = 'light';
-          }
-          
-          // Apply theme class immediately
-          document.documentElement.classList.add(theme);
-          
-          // Set a data attribute for CSS selectors too
-          document.documentElement.setAttribute('data-theme', theme);
-          
-          // Store the current theme for body class sync
-          window.currentTheme = theme;
-          
-          // Also set dark mode media query
-          if (theme === 'dark') {
-            document.documentElement.style.colorScheme = 'dark';
-          }
-        } catch (e) {
-          // Fallback to light theme on error
-          document.documentElement.classList.add('light');
-          console.error('Theme initialization error:', e);
-        }
-      })();
-    </script>
-    
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -50,6 +11,60 @@
     <meta property="og:image" content="/og-image.png" />
     <meta property="og:url" content="https://eventify.app" />
     <meta name="twitter:card" content="summary_large_image" />
+    
+    <!-- Block rendering until theme is applied (prevents flash) -->
+    <style>
+      html.no-js {
+        display: none;
+      }
+    </style>
+    
+    <!-- Better fix for dark mode on Vercel deployment -->
+    <script>
+      (function() {
+        // Add no-js class to document
+        document.documentElement.classList.add('no-js');
+
+        try {
+          const storageKey = "eventify-theme";
+          let theme = localStorage.getItem(storageKey);
+          
+          // If not available or set to system, check system preference
+          if (!theme || theme === 'system') {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          
+          // Apply theme immediately to prevent flash
+          document.documentElement.classList.remove('light', 'dark');
+          document.documentElement.classList.add(theme);
+
+          // Store this theme as the current theme so React doesn't override it later
+          if (theme !== 'system') {
+            localStorage.setItem(storageKey, theme);
+          }
+          
+          // Add a class to help us know the theme was set
+          document.documentElement.classList.add('theme-initialized');
+        } catch (e) {
+          console.error('Error initializing theme:', e);
+        } finally {
+          // Remove the no-js class to display the page once theme is set
+          document.documentElement.classList.remove('no-js');
+        }
+      })();
+    </script>
+
+    <!-- Fallback in case script fails (runs after 100ms) -->
+    <script>
+      setTimeout(function() {
+        if (document.documentElement.classList.contains('no-js')) {
+          document.documentElement.classList.remove('no-js');
+          console.log('Fallback theme display activated');
+        }
+      }, 100);
+    </script>
+
+    <meta name="theme-color" content="#F97316" />
   </head>
   <body>
     <div id="root"></div>
