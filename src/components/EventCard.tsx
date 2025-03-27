@@ -60,8 +60,8 @@ export const EventCard: React.FC<EventCardProps> = ({
 
   return (
     <Card className={cn(
-      "overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 event-card w-full h-full flex flex-col min-h-[400px]",
-      isHighlighted && "ring-2 ring-[#F97316] shadow-md"
+      "overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 event-card w-full h-full flex flex-col min-h-[400px] shadow-md",
+      isHighlighted && "ring-2 ring-[#F97316] shadow-lg"
     )}>
       <Link to={`/event/${slug}`} className="group">
         <div className="relative overflow-hidden">
@@ -113,7 +113,7 @@ export const EventCard: React.FC<EventCardProps> = ({
       <div className="px-5 pb-5 mt-auto">
         <Link to={`/event/${slug}`}>
           <Button 
-            className="w-full bg-[#F97316] hover:bg-[#FB923C] text-sm py-5 h-auto font-medium rounded-md"
+            className="w-full orange-button py-5 h-auto font-medium rounded-md"
           >
             {isFree ? "Register Now" : "Get Ticket"}
           </Button>

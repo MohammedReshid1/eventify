@@ -228,6 +228,196 @@
   }
 }
 
+/* Shadow fixes - ensure shadows work in both light and dark mode */
+.shadow {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.dark .shadow {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+}
+
+.shadow-md {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.dark .shadow-md {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+}
+
+.shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.dark .shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+}
+
+.shadow-xl {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.dark .shadow-xl {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+}
+
+@layer components {
+  /* Keep orange color consistent in dark mode */
+  .orange-primary {
+    background-color: #F97316;
+    color: white;
+  }
+  
+  .orange-primary:hover {
+    background-color: #FB923C;
+  }
+  
+  /* Additional dark mode styling for navbar and footer */
+  .dark nav.sticky {
+    background-color: black;
+    border-bottom-color: rgb(31, 41, 55);
+  }
+  
+  .dark footer {
+    background-color: black;
+    color: white;
+    border-top-color: rgb(31, 41, 55);
+  }
+  
+  /* Make event cards a lighter black in dark mode */
+  .dark .event-card {
+    background-color: #1a1a1a;
+    border-color: rgb(31, 41, 55);
+  }
+
+  /* Add orange theme styles */
+  .orange-gradient {
+    background-image: linear-gradient(to right, #ea580c, #fb923c);
+  }
+  
+  .category-button {
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-radius: 9999px;
+    transition-property: color, background-color;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+  }
+  
+  .category-button.active {
+    background-color: #F97316;
+    color: white;
+  }
+  
+  .category-button:not(.active) {
+    background-color: rgb(255, 237, 213);
+    color: rgb(154, 52, 18);
+  }
+  
+  .category-button:not(.active):hover {
+    background-color: rgb(254, 215, 170);
+  }
+  
+  .dark .category-button:not(.active) {
+    background-color: rgb(31, 41, 55);
+    color: rgb(253, 186, 116);
+  }
+  
+  .dark .category-button:not(.active):hover {
+    background-color: rgb(55, 65, 81);
+  }
+
+  /* Fixing tabs in dark mode for admin panel */
+  .dark [role="tablist"] {
+    background-color: rgb(31, 41, 55);
+    border-color: rgb(55, 65, 81);
+  }
+  
+  .dark [role="tab"] {
+    color: rgb(209, 213, 219);
+  }
+  
+  .dark [role="tab"]:hover {
+    color: white;
+  }
+  
+  .dark [role="tab"][data-state="active"] {
+    background-color: rgb(17, 24, 39);
+    color: white;
+  }
+  
+  .dark [role="tab"][data-state="inactive"]:hover {
+    background-color: rgb(55, 65, 81);
+  }
+  
+  /* Admin table dark mode fixes */
+  .dark table {
+    background-color: rgb(17, 24, 39);
+    border-color: rgb(55, 65, 81);
+  }
+  
+  .dark th {
+    background-color: rgb(31, 41, 55);
+    color: rgb(229, 231, 235);
+    border-color: rgb(55, 65, 81);
+  }
+  
+  .dark td {
+    border-color: rgb(55, 65, 81);
+    color: rgb(209, 213, 219);
+  }
+  
+  .dark select {
+    background-color: rgb(31, 41, 55);
+    border-color: rgb(55, 65, 81);
+    color: rgb(229, 231, 235);
+  }
+  
+  /* Fix for inputs and buttons in dark mode */
+  .dark input,
+  .dark textarea {
+    background-color: rgb(31, 41, 55);
+    border-color: rgb(55, 65, 81);
+    color: rgb(229, 231, 235);
+  }
+  
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: rgb(107, 114, 128);
+  }
+  
+  .dark input:focus,
+  .dark textarea:focus,
+  .dark select:focus {
+    border-color: rgb(75, 85, 99);
+    --tw-ring-color: rgb(75, 85, 99);
+  }
+  
+  /* Ensure orange buttons in dark mode */
+  .dark .orange-button {
+    background-color: #F97316;
+    color: white;
+  }
+  
+  /* Ensure animations work in dark mode */
+  .dark .animate-pulse {
+    background-color: rgb(55, 65, 81);
+  }
+
+  /* Additional UI component fixes for dark mode */
+  .dark .dropdown-content {
+    background-color: rgb(31, 41, 55);
+    border-color: rgb(55, 65, 81);
+  }
+  
+  .dark .modal-content {
+    background-color: rgb(31, 41, 55);
+    border-color: rgb(55, 65, 81);
+  }
+}
+
 /* Fix for dark mode transitions */
 * {
   transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
