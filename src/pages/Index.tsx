@@ -45,9 +45,7 @@ export default function Index() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if ((!searchTerm || searchTerm.trim() === '') && 
-        (!selectedCategory || selectedCategory === 'all') && 
-        (!selectedLocation || selectedLocation === 'all')) {
+    if (!searchTerm && !selectedCategory && !selectedLocation) {
       toast({
         title: "Please enter search criteria",
         description: "Enter a keyword, select a category, or choose a location to search for events.",
@@ -59,8 +57,8 @@ export default function Index() {
     // Redirect to events page with search params
     const params = new URLSearchParams();
     if (searchTerm) params.set("q", searchTerm);
-    if (selectedCategory && selectedCategory !== 'all') params.set("category", selectedCategory);
-    if (selectedLocation && selectedLocation !== 'all') params.set("location", selectedLocation);
+    if (selectedCategory) params.set("category", selectedCategory);
+    if (selectedLocation) params.set("location", selectedLocation);
     
     navigate(`/events?${params.toString()}`);
   };
@@ -245,7 +243,7 @@ export default function Index() {
             </div>
             <div className="md:w-1/2 flex justify-center">
               <img 
-                src="https://placehold.co/300x600/F97316/FFFFFF?text=Event+App"
+                src="/app-mockup.png" 
                 alt="Mobile app mockup" 
                 className="max-w-full h-auto max-h-80 shadow-2xl rounded-lg transform rotate-3"
                 onError={(e) => {
