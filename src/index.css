@@ -199,7 +199,13 @@
   /* Fix for inputs and buttons in dark mode */
   .dark input,
   .dark textarea {
-    @apply bg-gray-800 border-gray-700 text-gray-200 placeholder:text-gray-500;
+    @apply bg-gray-800 border-gray-700 text-gray-200;
+  }
+  
+  /* Add placeholder styling separately to avoid circular dependencies */
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: rgb(107, 114, 128);
   }
   
   .dark input:focus,
