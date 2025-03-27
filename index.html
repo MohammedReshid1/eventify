@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="no-js">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -12,20 +12,30 @@
     <meta property="og:url" content="https://eventify.app" />
     <meta name="twitter:card" content="summary_large_image" />
     
-    <!-- Block rendering until theme is applied (prevents flash) -->
+    <!-- Critical CSS to prevent flash of incorrect theme -->
     <style>
       html.no-js {
-        display: none;
+        visibility: hidden;
+      }
+      
+      /* Define dark mode variables immediately */
+      :root {
+        color-scheme: light dark;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        html.no-js {
+          background-color: #121212;
+          color: white;
+        }
       }
     </style>
     
-    <!-- Better fix for dark mode on Vercel deployment -->
+    <!-- Theme detection script that runs immediately -->
     <script>
       (function() {
-        // Add no-js class to document
-        document.documentElement.classList.add('no-js');
-
         try {
+          // Get theme preference from localStorage
           const storageKey = "eventify-theme";
           let theme = localStorage.getItem(storageKey);
           
@@ -34,41 +44,37 @@
             theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
           }
           
-          // Apply theme immediately to prevent flash
-          document.documentElement.classList.remove('light', 'dark');
+          // Apply theme immediately
           document.documentElement.classList.add(theme);
-
-          // Store this theme as the current theme so React doesn't override it later
-          if (theme !== 'system') {
-            localStorage.setItem(storageKey, theme);
-          }
-          
-          // Add a class to help us know the theme was set
-          document.documentElement.classList.add('theme-initialized');
-        } catch (e) {
-          console.error('Error initializing theme:', e);
-        } finally {
-          // Remove the no-js class to display the page once theme is set
           document.documentElement.classList.remove('no-js');
+          
+          // Store current theme mode for React to use
+          window.__THEME_MODE = theme;
+          
+          // Create a small debugging message
+          console.log("Theme applied by HTML script:", theme);
+        } catch (e) {
+          // If something went wrong, still show the site by removing the no-js class
+          document.documentElement.classList.remove('no-js');
+          console.error('Error setting initial theme:', e);
         }
       })();
     </script>
-
-    <!-- Fallback in case script fails (runs after 100ms) -->
-    <script>
-      setTimeout(function() {
-        if (document.documentElement.classList.contains('no-js')) {
-          document.documentElement.classList.remove('no-js');
-          console.log('Fallback theme display activated');
+    
+    <!-- Ultra-quick failsafe -->
+    <noscript>
+      <style>
+        html.no-js {
+          visibility: visible;
         }
-      }, 100);
-    </script>
-
+      </style>
+    </noscript>
+    
     <meta name="theme-color" content="#F97316" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121212" />
   </head>
   <body>
     <div id="root"></div>
-    <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
