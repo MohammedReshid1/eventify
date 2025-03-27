@@ -127,15 +127,6 @@
     @apply shadow-gray-900;
   }
   
-  /* Keep orange color consistent in dark mode */
-  .orange-primary {
-    @apply bg-[#F97316] text-white hover:bg-[#FB923C];
-  }
-  
-  .dark .orange-primary {
-    @apply bg-[#F97316] text-white hover:bg-[#FB923C];
-  }
-
   /* Additional dark mode styling for navbar and footer */
   .dark nav.sticky {
     @apply bg-black backdrop-blur supports-[backdrop-filter]:bg-black/90 border-gray-800;

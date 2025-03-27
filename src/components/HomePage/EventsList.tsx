@@ -99,11 +99,12 @@ const EventsList: React.FC<EventsListProps> = ({
           animate="show"
           className={cn(
             "grid gap-6",
-            "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+            "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+            "shadow-fix"
           )}
         >
           {displayEvents.map((event) => (
-            <motion.div key={event.id} variants={item}>
+            <motion.div key={event.id} variants={item} className="shadow-md hover:shadow-lg transition-shadow">
               <EventCard
                 title={event.title}
                 date={new Date(event.start_date).toLocaleDateString('en-US', {
@@ -124,25 +125,18 @@ const EventsList: React.FC<EventsListProps> = ({
           ))}
         </motion.div>
       ) : (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex flex-col items-center justify-center gap-4 py-12 px-4 border border-dashed rounded-lg"
-        >
-          {isSearchResult && searchQuery ? (
-            <>
-              <p className="text-lg text-center text-muted-foreground">
-                No events found matching "{searchQuery}"
-              </p>
-              <p className="text-sm text-center text-muted-foreground">
-                Try adjusting your search terms or browse all events
-              </p>
-            </>
+        <div className="text-center py-16 border border-dashed rounded-lg">
+          {isSearchResult ? (
+            <p className="text-lg text-muted-foreground mb-4">
+              {searchQuery 
+                ? `No events found matching "${searchQuery}"`
+                : "No events found matching your search criteria"}
+            </p>
           ) : (
-            <p className="text-lg text-center text-muted-foreground">{emptyText}</p>
+            <p className="text-lg text-muted-foreground mb-4">{emptyText}</p>
           )}
           {emptyAction}
-        </motion.div>
+        </div>
       )}
     </div>
   );
