@@ -1,6 +1,45 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <!-- Prevent flash of wrong theme -->
+    <script>
+      (function() {
+        try {
+          // Force immediate execution before any rendering
+          const storageKey = "eventify-theme";
+          let theme = localStorage.getItem(storageKey);
+          
+          if (!theme || theme === 'system') {
+            // Check system preference
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          
+          // Set a fallback in case theme is somehow invalid
+          if (theme !== 'dark' && theme !== 'light') {
+            theme = 'light';
+          }
+          
+          // Apply theme class immediately
+          document.documentElement.classList.add(theme);
+          
+          // Set a data attribute for CSS selectors too
+          document.documentElement.setAttribute('data-theme', theme);
+          
+          // Store the current theme for body class sync
+          window.currentTheme = theme;
+          
+          // Also set dark mode media query
+          if (theme === 'dark') {
+            document.documentElement.style.colorScheme = 'dark';
+          }
+        } catch (e) {
+          // Fallback to light theme on error
+          document.documentElement.classList.add('light');
+          console.error('Theme initialization error:', e);
+        }
+      })();
+    </script>
+    
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -11,28 +50,6 @@
     <meta property="og:image" content="/og-image.png" />
     <meta property="og:url" content="https://eventify.app" />
     <meta name="twitter:card" content="summary_large_image" />
-    
-    <!-- Fix for dark mode on Vercel deployment -->
-    <script>
-      (function() {
-        try {
-          // Check for saved theme in localStorage
-          const storageKey = "eventify-theme";
-          let theme = localStorage.getItem(storageKey);
-          
-          // If not available or set to system, check system preference
-          if (!theme || theme === 'system') {
-            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-          }
-          
-          // Apply theme immediately to prevent flash
-          document.documentElement.classList.remove('light', 'dark');
-          document.documentElement.classList.add(theme);
-        } catch (e) {
-          console.error('Error initializing theme:', e);
-        }
-      })();
-    </script>
   </head>
   <body>
     <div id="root"></div>

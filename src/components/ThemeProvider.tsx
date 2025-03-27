@@ -47,67 +47,65 @@ export function ThemeProvider({
   storageKey = "eventify-theme",
   ...props
 }: ThemeProviderProps) {
-  // Initialize from localStorage, with fallback to defaultTheme
-  const [theme, setTheme] = useState<Theme>(() => {
-    // SSR check - if window is not defined, return defaultTheme
-    if (typeof window === 'undefined') return defaultTheme;
+  const [theme, setTheme] = useState<Theme>(
+    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
+  )
+
+  useEffect(() => {
+    const root = window.document.documentElement
     
-    try {
-      const storedTheme = window.localStorage.getItem(storageKey) as Theme;
-      return storedTheme || defaultTheme;
-    } catch (error) {
-      console.error('Error accessing localStorage:', error);
-      return defaultTheme;
+    // Check if a theme was already applied by our script in index.html
+    const currentAppliedTheme = root.classList.contains("dark") ? "dark" : 
+                                root.classList.contains("light") ? "light" : null;
+    
+    // Sync with our initial state if needed
+    if (currentAppliedTheme && theme !== currentAppliedTheme && 
+        (theme === "light" || theme === "dark")) {
+      root.classList.remove(currentAppliedTheme);
+      root.classList.add(theme);
     }
-  });
-
-  // Listen for changes in system color scheme
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     
-    const handleChange = () => {
-      if (theme === "system") {
-        const root = window.document.documentElement;
-        root.classList.remove("light", "dark");
-        root.classList.add(mediaQuery.matches ? "dark" : "light");
-      }
-    };
-    
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
-  }, [theme]);
-
-  // Apply theme to document
-  useEffect(() => {
-    const root = window.document.documentElement;
-    root.classList.remove("light", "dark");
-
     if (theme === "system") {
       const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
         ? "dark"
-        : "light";
+        : "light"
+      
+      root.classList.remove("light", "dark");
       root.classList.add(systemTheme);
-    } else {
-      root.classList.add(theme);
+      return;
     }
+
+    root.classList.remove("light", "dark");
+    root.classList.add(theme);
   }, [theme]);
 
-  // Save theme to localStorage when it changes
+  // Listen for system color scheme changes when theme is set to system
   useEffect(() => {
-    try {
-      window.localStorage.setItem(storageKey, theme);
-    } catch (error) {
-      console.error('Error writing to localStorage:', error);
+    if (theme !== 'system') {
+      return;
     }
-  }, [storageKey, theme]);
 
-  // Define value for context
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    
+    const handleChange = () => {
+      const root = window.document.documentElement;
+      const systemTheme = mediaQuery.matches ? 'dark' : 'light';
+      
+      root.classList.remove('light', 'dark');
+      root.classList.add(systemTheme);
+    };
+    
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [theme]);
+
   const value = {
     theme,
-    setTheme: (newTheme: Theme) => {
-      setTheme(newTheme);
+    setTheme: (theme: Theme) => {
+      localStorage.setItem(storageKey, theme);
+      setTheme(theme);
     },
-  };
+  }
 
   return (
     <>
@@ -117,12 +115,14 @@ export function ThemeProvider({
         {children}
       </ThemeProviderContext.Provider>
     </>
-  );
+  )
 }
 
 export const useTheme = () => {
-  const context = useContext(ThemeProviderContext);
+  const context = useContext(ThemeProviderContext)
+
   if (context === undefined)
-    throw new Error("useTheme must be used within a ThemeProvider");
-  return context;
-}; 
+    throw new Error("useTheme must be used within a ThemeProvider")
+
+  return context
+} 

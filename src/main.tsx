@@ -18,6 +18,26 @@ const queryClient = new QueryClient({
   },
 });
 
+// Create a style element to ensure dark mode styles are applied properly
+if (typeof document !== 'undefined') {
+  // Create a style element
+  const style = document.createElement('style');
+  style.textContent = `
+    :root {
+      color-scheme: light;
+    }
+    
+    :root.dark {
+      color-scheme: dark;
+    }
+    
+    [data-theme="dark"] {
+      color-scheme: dark;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
