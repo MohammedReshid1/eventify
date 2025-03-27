@@ -33,6 +33,15 @@ export default function Index() {
   const navigate = useNavigate();
   const { toast } = useToast();
   
+  // Debug logging
+  useEffect(() => {
+    console.log("Index component rendered");
+    console.log("Events data:", events);
+    console.log("Latest events:", latestEvents);
+    console.log("Categories:", categories);
+    console.log("Loading state:", isLoading);
+  }, [events, latestEvents, categories, isLoading]);
+  
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -57,7 +66,7 @@ export default function Index() {
   const uniqueLocations = Array.from(new Set(events?.map(event => event.location) || [])).sort();
   
   // Filter featured events
-  const featuredEvents = events?.filter(event => event.featured).slice(0, 3) || [];
+  const featuredEvents = events?.filter(event => event.featured)?.slice(0, 3) || [];
   
   return (
     <div>
@@ -234,9 +243,12 @@ export default function Index() {
             </div>
             <div className="md:w-1/2 flex justify-center">
               <img 
-                src="/app-mockup.png" 
+                src="https://placehold.co/300x600/F97316/FFFFFF?text=Event+App"
                 alt="Mobile app mockup" 
                 className="max-w-full h-auto max-h-80 shadow-2xl rounded-lg transform rotate-3"
+                onError={(e) => {
+                  e.currentTarget.src = "https://placehold.co/300x600/F97316/FFFFFF?text=Event+App";
+                }}
               />
             </div>
           </div>

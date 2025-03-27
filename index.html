@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <!-- Prevent flash of wrong theme -->
@@ -43,17 +43,62 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Eventify - Find and Register for Amazing Events</title>
+    <title>FindEvent - Discover Events Near You</title>
     <meta name="description" content="Discover and register for events that match your interests" />
     <meta property="og:title" content="Eventify - Find and Register for Amazing Events" />
     <meta property="og:description" content="Discover and register for events that match your interests" />
     <meta property="og:image" content="/og-image.png" />
     <meta property="og:url" content="https://eventify.app" />
     <meta name="twitter:card" content="summary_large_image" />
+    
+    <!-- Fix for dark mode flash -->
+    <script>
+      // On page load or when changing themes, best to add inline in `head` to avoid FOUC
+      if (localStorage.getItem('eventify-theme') === 'dark' || 
+          (!('eventify-theme' in localStorage) && 
+          window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    </script>
+    
+    <!-- Add app error tracking -->
+    <script>
+      window.addEventListener('error', function(e) {
+        console.error('Global error caught:', e.error || e.message);
+        var errors = JSON.parse(localStorage.getItem('app_errors') || '[]');
+        errors.push({
+          timestamp: new Date().toISOString(),
+          message: e.error ? (e.error.stack || e.error.message) : e.message
+        });
+        localStorage.setItem('app_errors', JSON.stringify(errors.slice(-20)));
+      });
+    </script>
   </head>
   <body>
-    <div id="root"></div>
-    <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
+    <div id="root">
+      <!-- This content will show if JS fails to load -->
+      <div style="display: flex; min-height: 100vh; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 1rem; font-family: Arial, sans-serif;">
+        <div style="max-width: 600px;">
+          <h1 style="font-size: 1.5rem; margin-bottom: 1rem; color: #f97316;">FindEvent</h1>
+          <p style="margin-bottom: 1rem; color: #666;">
+            If you're seeing this message, there might be an issue loading the application.
+          </p>
+          <div style="margin-bottom: 2rem;">
+            <button onclick="window.location.reload()" style="background-color: #f97316; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.25rem; cursor: pointer;">
+              Refresh Page
+            </button>
+            <a href="/test" style="display: inline-block; margin-left: 0.5rem; color: #f97316; text-decoration: underline;">
+              Try Test Page
+            </a>
+          </div>
+          <p style="font-size: 0.875rem; color: #999;">
+            Try clearing your browser cache or using a different browser if the problem persists.
+          </p>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

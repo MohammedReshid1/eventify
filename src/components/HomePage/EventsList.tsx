@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { EventCard } from "@/components/EventCard";
@@ -13,13 +13,14 @@ interface Event {
   start_date: string;
   start_time?: string;
   location: string;
-  price: string;
-  banner_image: string;
+  price: string | number;
+  banner_image?: string;
+  image_url?: string;
   category: {
     name: string;
     id: string;
   };
-  isFree: boolean;
+  isFree?: boolean;
   slug: string;
   featured?: boolean;
 }
@@ -65,10 +66,31 @@ const EventsList: React.FC<EventsListProps> = ({
   const navigate = useNavigate();
   const isMobile = useMobile();
   
-  // Sort events so featured ones come first
-  const sortedEvents = [...events].sort((a, b) => 
-    a.featured === b.featured ? 0 : a.featured ? -1 : 1
-  );
+  // Debug logging
+  useEffect(() => {
+    console.log(`EventsList "${title}" rendered with ${events?.length || 0} events`);
+  }, [title, events]);
+  
+  // Safety check for events array
+  if (!events || !Array.isArray(events)) {
+    console.error(`EventsList "${title}" received invalid events:`, events);
+    return (
+      <div className="mb-16">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold">{title}</h2>
+        </div>
+        <div className="text-center py-16 border border-dashed rounded-lg">
+          <p className="text-lg text-muted-foreground mb-4">Unable to load events</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Sort events so featured ones come first, with null checks
+  const sortedEvents = [...events].sort((a, b) => {
+    if (!a || !b) return 0;
+    return (a.featured === b.featured) ? 0 : (a.featured ? -1 : 1);
+  });
   
   const displayEvents = limit ? sortedEvents.slice(0, limit) : sortedEvents;
   
@@ -103,26 +125,34 @@ const EventsList: React.FC<EventsListProps> = ({
             "shadow-fix"
           )}
         >
-          {displayEvents.map((event) => (
-            <motion.div key={event.id} variants={item} className="shadow-md hover:shadow-lg transition-shadow">
-              <EventCard
-                title={event.title}
-                date={new Date(event.start_date).toLocaleDateString('en-US', {
-                  weekday: 'short',
-                  month: 'short',
-                  day: 'numeric'
-                })}
-                time={event.start_time}
-                location={event.location}
-                price={event.price}
-                image={event.banner_image}
-                category={event.category.name}
-                isFree={event.isFree}
-                slug={event.slug}
-                isHighlighted={event.featured}
-              />
-            </motion.div>
-          ))}
+          {displayEvents.map((event) => {
+            // Skip rendering if event is invalid
+            if (!event || !event.id) {
+              console.error("Invalid event in EventsList:", event);
+              return null;
+            }
+            
+            return (
+              <motion.div key={event.id} variants={item} className="shadow-md hover:shadow-lg transition-shadow">
+                <EventCard
+                  title={event.title}
+                  date={event.start_date ? new Date(event.start_date).toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric'
+                  }) : 'Date TBA'}
+                  time={event.start_time}
+                  location={event.location || 'Location TBA'}
+                  price={event.price || 0}
+                  image={event.banner_image || event.image_url || ''}
+                  category={event.category?.name || 'Uncategorized'}
+                  isFree={event.isFree}
+                  slug={event.slug}
+                  isHighlighted={event.featured}
+                />
+              </motion.div>
+            );
+          })}
         </motion.div>
       ) : (
         <div className="text-center py-16 border border-dashed rounded-lg">

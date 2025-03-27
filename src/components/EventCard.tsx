@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
@@ -11,7 +11,7 @@ interface EventCardProps {
   date: string;
   time?: string;
   location: string;
-  price: string;
+  price: string | number;
   image: string;
   category: string;
   isFree?: boolean;
@@ -55,8 +55,15 @@ export const EventCard: React.FC<EventCardProps> = ({
   slug,
   isHighlighted = false
 }) => {
-  // If no image is provided, use a placeholder based on the event title
-  const imageUrl = image || getHashedImage(title);
+  const [imageError, setImageError] = useState(false);
+  
+  // If no image is provided or there was an error loading the image, use a placeholder
+  const imageUrl = (image && !imageError) ? image : getHashedImage(title);
+
+  // Format price nicely, handling different types
+  const formattedPrice = typeof price === 'number' 
+    ? price.toFixed(2) 
+    : (typeof price === 'string' ? price : '0.00');
 
   return (
     <Card className={cn(
@@ -74,6 +81,10 @@ export const EventCard: React.FC<EventCardProps> = ({
             src={imageUrl}
             alt={title}
             className="h-64 w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            onError={() => {
+              console.log(`Image load error for event: ${title}`);
+              setImageError(true);
+            }}
           />
           <Badge className="absolute right-2 top-2 bg-[#F97316] text-white hover:bg-[#F97316] z-20">
             {category}
@@ -104,7 +115,7 @@ export const EventCard: React.FC<EventCardProps> = ({
             <div className="pt-2 flex items-center">
               <Tag className="mr-2 h-4 w-4 text-[#F97316]" />
               <span className="font-medium text-foreground">
-                {isFree ? "Free Event" : `${price} ETB`}
+                {isFree ? "Free Event" : `${formattedPrice} ETB`}
               </span>
             </div>
           </div>
