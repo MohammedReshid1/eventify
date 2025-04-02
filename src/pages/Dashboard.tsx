@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Plus, Calendar, Ticket, MoreVertical, Pencil, Trash, ClipboardCopy } from "lucide-react";
+import { Loader2, Plus, Calendar, Ticket, CreditCard, MoreVertical, Pencil, Trash, ClipboardCopy } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { 
@@ -37,20 +37,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { QrCodeScanner } from "@/components/QrCodeScanner";
+import { PaymentTransfer } from "@/components/dashboard/PaymentTransfer";
+import { DashboardEvents } from "@/components/dashboard/DashboardEvents";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
-  const [description, setDescription] = useState("");
-  const [editEventId, setEditEventId] = useState<string | null>(null);
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [eventToDelete, setEventToDelete] = useState<string | null>(null);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [showPaymentTab, setShowPaymentTab] = useState(false);
+  const [selectedEventForPayment, setSelectedEventForPayment] = useState<string | null>(null);
   const [showTicketDialog, setShowTicketDialog] = useState(false);
   const [ticketToUpdate, setTicketToUpdate] = useState<any>(null);
   const [newTicketQuantity, setNewTicketQuantity] = useState<number>(0);
-  const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [description, setDescription] = useState("");
+  const [selectedEventId, setSelectedEventId] = useState("");
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   useEffect(() => {
     async function checkAuth() {
@@ -113,7 +116,10 @@ const Dashboard = () => {
             quantity,
             total_amount,
             payment_status,
-            ticket_id
+            ticket_id,
+            organizer_amount,
+            commission_amount,
+            organizer_transfer_status
           )
         `)
         .eq("organizer_id", user?.id)
@@ -160,86 +166,9 @@ const Dashboard = () => {
     enabled: !!user?.id && !isAuthChecking,
   });
 
-  const updateEventStatus = async (eventId: string, status: string) => {
-    const { error } = await supabase
-      .from("events")
-      .update({ status })
-      .eq("id", eventId);
-
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to update event status. Please try again.",
-      });
-    } else {
-      toast({
-        title: "Success",
-        description: `Event ${status === "published" ? "published" : "unpublished"} successfully.`,
-      });
-      refetchEvents();
-    }
-  };
-
-  const deleteEvent = async () => {
-    if (!eventToDelete) return;
-    
-    const { error } = await supabase
-      .from("events")
-      .delete()
-      .eq("id", eventToDelete);
-
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to delete event. Please try again.",
-      });
-    } else {
-      toast({
-        title: "Success",
-        description: "Event deleted successfully.",
-      });
-      setShowDeleteDialog(false);
-      setEventToDelete(null);
-      refetchEvents();
-    }
-  };
-
-  const updateEventDescription = async () => {
-    if (!editEventId) return;
-    
-    const { error } = await supabase
-      .from("events")
-      .update({ description })
-      .eq("id", editEventId);
-
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to update event description. Please try again.",
-      });
-    } else {
-      toast({
-        title: "Success",
-        description: "Event description updated successfully.",
-      });
-      setShowEditDialog(false);
-      setEditEventId(null);
-      refetchEvents();
-    }
-  };
-
-  const openEditDialog = (eventId: string, currentDescription: string) => {
-    setEditEventId(eventId);
-    setDescription(currentDescription || "");
-    setShowEditDialog(true);
-  };
-
-  const openDeleteDialog = (eventId: string) => {
-    setEventToDelete(eventId);
-    setShowDeleteDialog(true);
+  const openPaymentTab = (eventId: string) => {
+    setSelectedEventForPayment(eventId);
+    setShowPaymentTab(true);
   };
 
   const openTicketDialog = (ticketId: string, currentQuantity: number) => {
@@ -253,76 +182,121 @@ const Dashboard = () => {
     }
   };
 
-  const updateTicketQuantity = async () => {
-    if (!ticketToUpdate) return;
+  const openEditDialog = (eventId: string, currentDescription: string) => {
+    setSelectedEventId(eventId);
+    setDescription(currentDescription || "");
+    setShowEditDialog(true);
+  };
+
+  const openDeleteDialog = (eventId: string) => {
+    setSelectedEventId(eventId);
+    setShowDeleteDialog(true);
+  };
+
+  const updateEventDescription = async () => {
+    if (!selectedEventId) return;
     
     try {
-      const additionalTickets = newTicketQuantity - ticketToUpdate.quantity;
+      const { error } = await supabase
+        .from("events")
+        .update({ description })
+        .eq("id", selectedEventId);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Description updated",
+        description: "Your event description has been updated successfully.",
+      });
+      
+      setShowEditDialog(false);
+      refetchEvents();
+    } catch (error: any) {
+      console.error("Error updating description:", error);
+      toast({
+        title: "Update failed",
+        description: error.message || "Failed to update event description",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteEvent = async () => {
+    if (!selectedEventId) return;
+    
+    try {
+      // Delete all related orders
+      const { error: ordersError } = await supabase
+        .from("orders")
+        .delete()
+        .eq("event_id", selectedEventId);
+      
+      if (ordersError) throw ordersError;
+      
+      // Delete all related tickets
+      const { error: ticketsError } = await supabase
+        .from("tickets")
+        .delete()
+        .eq("event_id", selectedEventId);
+      
+      if (ticketsError) throw ticketsError;
+      
+      // Delete the event
+      const { error: eventError } = await supabase
+        .from("events")
+        .delete()
+        .eq("id", selectedEventId);
+      
+      if (eventError) throw eventError;
+      
+      toast({
+        title: "Event deleted",
+        description: "Your event has been deleted successfully.",
+      });
+      
+      setShowDeleteDialog(false);
+      refetchEvents();
+    } catch (error: any) {
+      console.error("Error deleting event:", error);
+      toast({
+        title: "Deletion failed",
+        description: error.message || "Failed to delete event",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updateTicketQuantity = async () => {
+    if (!ticketToUpdate || newTicketQuantity <= ticketToUpdate.quantity) return;
+    
+    try {
+      const addedQuantity = newTicketQuantity - ticketToUpdate.quantity;
       
       const { error } = await supabase
         .from("tickets")
         .update({ 
           quantity: newTicketQuantity,
-          remaining: ticketToUpdate.remaining + additionalTickets
+          remaining: ticketToUpdate.remaining + addedQuantity
         })
         .eq("id", ticketToUpdate.id);
-
+      
       if (error) throw error;
-
+      
       toast({
-        title: "Success",
-        description: "Ticket quantity updated successfully",
+        title: "Tickets added",
+        description: `Successfully added ${addedQuantity} more tickets.`,
       });
       
       setShowTicketDialog(false);
-      setTicketToUpdate(null);
       refetchEvents();
     } catch (error: any) {
+      console.error("Error updating ticket quantity:", error);
       toast({
-        variant: "destructive",
-        title: "Error",
+        title: "Update failed",
         description: error.message || "Failed to update ticket quantity",
+        variant: "destructive",
       });
     }
-  };
-
-  const copyEventId = (eventId: string) => {
-    navigator.clipboard.writeText(eventId);
-    toast({
-      title: "Success",
-      description: "Event ID copied to clipboard",
-    });
-  };
-
-  const getEventStatus = (event: any) => {
-    if (event.status === 'finished') return 'Finished';
-    if (new Date(event.end_date) < new Date()) return 'Ended';
-    if (event.status === 'published') return 'Active';
-    return 'Draft';
-  };
-
-  const calculateEventStats = (event: any) => {
-    const eventOrders = event.orders || [];
-    
-    const completedOrders = eventOrders.filter((order: any) => {
-      const ticket = event.tickets?.find((t: any) => t.id === order.ticket_id);
-      return (ticket?.price === 0 || ticket?.type === 'free' || order.payment_status === 'completed');
-    });
-    
-    const totalRegistrations = completedOrders.reduce((sum: number, order: any) => 
-      sum + (parseInt(order.quantity) || 0), 0);
-    
-    const totalRevenue = completedOrders.reduce((sum: number, order: any) => 
-      sum + (parseFloat(order.total_amount) || 0), 0);
-    
-    const ticketsSold = event.tickets?.reduce((sum: number, ticket: any) => 
-      sum + ((ticket.quantity - ticket.remaining) || 0), 0) || 0;
-
-    return {
-      totalRegistrations,
-      totalRevenue,
-      ticketsSold,
-    };
   };
 
   const isLoading = isAuthChecking || isLoadingEvents || isLoadingOrders;
@@ -344,169 +318,29 @@ const Dashboard = () => {
         </Button>
       </div>
 
-      <Tabs defaultValue="events" className="w-full">
+      <Tabs defaultValue={showPaymentTab ? "payments" : "events"} className="w-full">
         <TabsList>
-          <TabsTrigger value="events" className="flex items-center gap-2">
+          <TabsTrigger value="events" className="flex items-center gap-2" onClick={() => setShowPaymentTab(false)}>
             <Calendar className="h-4 w-4" /> My Events
           </TabsTrigger>
-          <TabsTrigger value="tickets" className="flex items-center gap-2">
+          <TabsTrigger value="tickets" className="flex items-center gap-2" onClick={() => setShowPaymentTab(false)}>
             <Ticket className="h-4 w-4" /> My Tickets
           </TabsTrigger>
+          {showPaymentTab && (
+            <TabsTrigger value="payments" className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4" /> Payments
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="events">
-          {isLoadingEvents ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-[#F97316]" />
-            </div>
-          ) : events.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-4 py-8">
-              <Calendar className="h-16 w-16 text-gray-400" />
-              <p className="text-lg text-gray-600">You haven't created any events yet.</p>
-              <Button onClick={() => navigate("/create-event")} variant="outline">
-                Create Your First Event
-              </Button>
-            </div>
-          ) : (
-            <div className="grid gap-6">
-              {events.map((event: any) => {
-                const stats = calculateEventStats(event);
-                const status = getEventStatus(event);
-                
-                return (
-                  <div
-                    key={event.id}
-                    className="relative rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
-                  >
-                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-lg font-semibold">{event.title}</h3>
-                          <span className={cn(
-                            "text-xs px-2 py-1 rounded-full",
-                            status === 'Active' && "bg-green-100 text-green-700",
-                            status === 'Draft' && "bg-gray-100 text-gray-700",
-                            status === 'Ended' && "bg-yellow-100 text-yellow-700",
-                            status === 'Finished' && "bg-red-100 text-red-700"
-                          )}>
-                            {status}
-                          </span>
-                          <Badge 
-                            variant="outline" 
-                            className="flex items-center gap-1 cursor-pointer"
-                            onClick={() => copyEventId(event.id)}
-                          >
-                            ID: {event.id.substring(0, 8)}...
-                            <ClipboardCopy className="h-3 w-3" />
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-gray-500">
-                          {new Date(event.start_date).toLocaleDateString()} at {event.location}
-                        </p>
-                      </div>
-
-                      <div className="flex gap-2">
-                        {status === 'Active' && (
-                          <QrCodeScanner eventId={event.id} />
-                        )}
-                        
-                        {status === 'Draft' ? (
-                          <Button
-                            onClick={() => updateEventStatus(event.id, "published")}
-                            variant="outline"
-                            className="border-green-500 text-green-500 hover:bg-green-500 hover:text-white"
-                          >
-                            Publish
-                          </Button>
-                        ) : status === 'Active' ? (
-                          <Button
-                            onClick={() => updateEventStatus(event.id, "draft")}
-                            variant="outline"
-                            className="border-yellow-500 text-yellow-500 hover:bg-yellow-500 hover:text-white"
-                          >
-                            Unpublish
-                          </Button>
-                        ) : null}
-                        
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEditDialog(event.id, event.description)}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Edit Description
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => copyEventId(event.id)}>
-                              <ClipboardCopy className="mr-2 h-4 w-4" />
-                              Copy Event ID
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              onClick={() => openDeleteDialog(event.id)}
-                              className="text-red-500 focus:text-red-500"
-                            >
-                              <Trash className="mr-2 h-4 w-4" />
-                              Delete Event
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                      <div className="rounded-lg bg-orange-50 p-4">
-                        <p className="text-sm text-gray-600">Registrations</p>
-                        <p className="text-2xl font-semibold text-[#F97316]">
-                          {stats.totalRegistrations}
-                        </p>
-                      </div>
-                      <div className="rounded-lg bg-orange-50 p-4">
-                        <p className="text-sm text-gray-600">Tickets Sold</p>
-                        <p className="text-2xl font-semibold text-[#F97316]">
-                          {stats.ticketsSold}
-                        </p>
-                      </div>
-                      <div className="rounded-lg bg-orange-50 p-4">
-                        <p className="text-sm text-gray-600">Revenue</p>
-                        <p className="text-2xl font-semibold text-[#F97316]">
-                          {stats.totalRevenue.toFixed(2)} ETB
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-4">
-                      <h4 className="mb-2 font-medium">Tickets</h4>
-                      <div className="grid gap-2">
-                        {event.tickets?.map((ticket: any) => (
-                          <div
-                            key={ticket.id}
-                            className="flex items-center justify-between rounded-md border p-3"
-                          >
-                            <div>
-                              <p className="font-medium">{ticket.name}</p>
-                              <p className="text-sm text-gray-500">
-                                {ticket.price === 0 || ticket.type === 'free' ? 'Free' : `${ticket.price} ETB`} · {ticket.remaining}/{ticket.quantity} available
-                              </p>
-                            </div>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => openTicketDialog(ticket.id, ticket.quantity)}
-                            >
-                              Add Tickets
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <DashboardEvents 
+            events={events} 
+            isLoading={isLoadingEvents} 
+            refetchEvents={refetchEvents} 
+            openPaymentTab={openPaymentTab}
+            openTicketDialog={openTicketDialog}
+          />
         </TabsContent>
 
         <TabsContent value="tickets">
@@ -570,6 +404,12 @@ const Dashboard = () => {
             </div>
           )}
         </TabsContent>
+
+        <TabsContent value="payments">
+          {selectedEventForPayment && (
+            <PaymentTransfer eventId={selectedEventForPayment} />
+          )}
+        </TabsContent>
       </Tabs>
 
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
@@ -627,10 +467,10 @@ const Dashboard = () => {
           
           {ticketToUpdate && (
             <div className="space-y-4">
-              <div className="rounded-lg bg-orange-50 p-4 mb-4">
-                <p className="text-sm text-gray-600">Current Ticket Information</p>
+              <div className="rounded-lg bg-orange-50 dark:bg-orange-950/30 p-4 mb-4">
+                <p className="text-sm text-gray-600 dark:text-gray-300">Current Ticket Information</p>
                 <p className="font-semibold">{ticketToUpdate.name}</p>
-                <p className="text-sm text-gray-500">Total: {ticketToUpdate.quantity} | Remaining: {ticketToUpdate.remaining}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-300">Total: {ticketToUpdate.quantity} | Remaining: {ticketToUpdate.remaining}</p>
               </div>
               
               <div className="space-y-2">

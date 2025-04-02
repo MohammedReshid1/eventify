@@ -1,49 +1,30 @@
-import React from 'react';
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+
 import { Link } from "react-router-dom";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar, MapPin, Tag, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { EventType } from "@/types";
 
 interface EventCardProps {
   title: string;
   date: string;
   time?: string;
   location: string;
-  price: string;
-  image: string;
+  price?: string | number;
+  image?: string;
   category: string;
   isFree?: boolean;
   slug: string;
   isHighlighted?: boolean;
+  expireDate?: string;
 }
 
-// Array of placeholder images for different event types
-const PLACEHOLDER_IMAGES = [
-  'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80', // Event hall
-  'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80', // Concert
-  'https://images.unsplash.com/photo-1540575467063-178a50c2df87?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80', // Tech conference
-  'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80', // Food event
-  'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80', // Business meeting
-  'https://images.unsplash.com/photo-1526976668912-1a811878dd37?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80', // Art exhibition
-  'https://images.unsplash.com/photo-1508997449629-303059a039c0?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80', // Sports event
-  'https://images.unsplash.com/photo-1544531586-fde5298cdd40?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80', // Workshop
-];
-
-// Simple hash function to get a consistent image for the same event title
-const getHashedImage = (title: string) => {
-  let hash = 0;
-  for (let i = 0; i < title.length; i++) {
-    hash = ((hash << 5) - hash) + title.charCodeAt(i);
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  // Get positive value and mod with array length
-  const index = Math.abs(hash) % PLACEHOLDER_IMAGES.length;
-  return PLACEHOLDER_IMAGES[index];
-};
-
-export const EventCard: React.FC<EventCardProps> = ({
+export function EventCard({
   title,
   date,
   time,
@@ -53,72 +34,82 @@ export const EventCard: React.FC<EventCardProps> = ({
   category,
   isFree = false,
   slug,
-  isHighlighted = false
-}) => {
-  // If no image is provided, use a placeholder based on the event title
-  const imageUrl = image || getHashedImage(title);
+  isHighlighted = false,
+  expireDate,
+}: EventCardProps) {
+  // Check if event is expired
+  const isExpired = expireDate ? new Date(expireDate) < new Date() : false;
+  
+  // Don't render the card if the event is expired
+  if (isExpired) {
+    return null;
+  }
+  
+  // Format price display
+  const formatPrice = () => {
+    if (isFree) return "Free";
+    if (price === undefined || price === null) return "TBD";
+    return typeof price === 'number' ? `${price.toFixed(2)} ETB` : `${parseFloat(price).toFixed(2)} ETB`;
+  };
 
   return (
-    <Card className={cn(
-      "overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 event-card w-full h-full flex flex-col min-h-[400px]",
-      isHighlighted && "ring-2 ring-[#F97316] shadow-md"
-    )}>
-      <Link to={`/event/${slug}`} className="group">
-        <div className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex items-center justify-center">
-            <span className="text-white font-medium bg-[#F97316] px-4 py-2 rounded-full transform translate-y-4 group-hover:translate-y-0 transition-transform">
-              View Details
+    <Link to={`/event/${slug}`}>
+      <Card className={cn(
+        "overflow-hidden transition-all duration-300 hover:shadow-md h-full flex flex-col",
+        isHighlighted && "border-orange-300 ring-1 ring-orange-200"
+      )}>
+        <div
+          className={cn(
+            "h-40 bg-cover bg-center bg-gray-100",
+            isHighlighted && "relative"
+          )}
+          style={{
+            backgroundImage: image ? `url(${image})` : "url('/placeholder.svg')",
+          }}
+        >
+          {isHighlighted && (
+            <div className="absolute top-2 right-2 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded">
+              Featured
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+        </div>
+        <CardContent className="flex-grow p-4">
+          <div className="mb-2">
+            <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+              {category}
             </span>
           </div>
-          <img
-            src={imageUrl}
-            alt={title}
-            className="h-64 w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-          <Badge className="absolute right-2 top-2 bg-[#F97316] text-white hover:bg-[#F97316] z-20">
-            {category}
-          </Badge>
-          {isHighlighted && (
-            <Badge className="absolute left-2 top-2 bg-[#0ea5e9] text-white hover:bg-[#0ea5e9] z-20">
-              Featured
-            </Badge>
-          )}
-        </div>
-        <CardContent className="p-5 flex-grow">
-          <h3 className="mb-3 text-xl font-semibold line-clamp-2 group-hover:text-[#F97316] transition-colors">{title}</h3>
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <p className="flex items-center">
-              <Calendar className="mr-2 h-4 w-4 text-[#F97316]" />
+          <h3 className="font-bold text-lg mb-2 line-clamp-2">{title}</h3>
+          <div className="space-y-2 text-sm text-gray-500">
+            <div className="flex items-center">
+              <Calendar className="h-4 w-4 mr-2 text-gray-400" />
               <span>{date}</span>
-            </p>
+            </div>
             {time && (
-              <p className="flex items-center">
-                <Clock className="mr-2 h-4 w-4 text-[#F97316]" />
+              <div className="flex items-center">
+                <Clock className="h-4 w-4 mr-2 text-gray-400" />
                 <span>{time}</span>
-              </p>
+              </div>
             )}
-            <p className="flex items-center">
-              <MapPin className="mr-2 h-4 w-4 text-[#F97316]" />
+            <div className="flex items-center">
+              <MapPin className="h-4 w-4 mr-2 text-gray-400" />
               <span className="line-clamp-1">{location}</span>
-            </p>
-            <div className="pt-2 flex items-center">
-              <Tag className="mr-2 h-4 w-4 text-[#F97316]" />
-              <span className="font-medium text-foreground">
-                {isFree ? "Free Event" : `${price} ETB`}
+            </div>
+            <div className="flex items-center">
+              <Tag className="h-4 w-4 mr-2 text-gray-400" />
+              <span className="font-medium text-black">
+                {formatPrice()}
               </span>
             </div>
           </div>
         </CardContent>
-      </Link>
-      <div className="px-5 pb-5 mt-auto">
-        <Link to={`/event/${slug}`}>
-          <Button 
-            className="w-full bg-[#F97316] hover:bg-[#FB923C] text-sm py-5 h-auto font-medium rounded-md"
-          >
-            {isFree ? "Register Now" : "Get Ticket"}
+        <CardFooter className="p-4 pt-0">
+          <Button variant="outline" className="w-full border-[#F97316] text-[#F97316]">
+            {isFree ? "Register" : "Get Ticket"}
           </Button>
-        </Link>
-      </div>
-    </Card>
+        </CardFooter>
+      </Card>
+    </Link>
   );
-};
+}

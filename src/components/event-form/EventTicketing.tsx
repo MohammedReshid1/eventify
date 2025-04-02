@@ -120,6 +120,32 @@ export function EventTicketing({ form }: EventTicketingProps) {
 
       <FormField
         control={form.control}
+        name="maxTicketsPerOrder"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Maximum Tickets Per Order</FormLabel>
+            <FormControl>
+              <Input
+                type="number"
+                placeholder={watchIsTicketFree ? "1" : "15"}
+                {...field}
+                onChange={(e) => field.onChange(parseInt(e.target.value))}
+                min={1}
+                max={100}
+              />
+            </FormControl>
+            <p className="text-xs text-muted-foreground">
+              {watchIsTicketFree
+                ? "For free events, it's recommended to limit to 1 ticket per order."
+                : "For paid events, you can allow multiple tickets per order."}
+            </p>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
         name="publishImmediately"
         render={({ field }) => (
           <FormItem className="flex flex-row items-start space-x-3 space-y-0">

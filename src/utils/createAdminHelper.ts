@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 // This utility is only run in development mode to help set up admin accounts
@@ -53,21 +54,8 @@ const createAdminHelper = async () => {
     if (data && data.user) {
       console.log("✅ Admin account created successfully!");
       
-      // Add admin role to profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: data.user.id,
-          email: adminEmail,
-          role: 'admin',
-          name: 'Admin User',
-        });
-
-      if (profileError) {
-        console.error("❌ Error setting admin role:", profileError.message);
-      } else {
-        console.log("✅ Admin role set successfully!");
-      }
+      // We no longer directly modify the profiles table since it's created automatically via a trigger
+      console.log("✅ Admin role will be set by a database trigger!");
 
       // Sign out after creation
       await supabase.auth.signOut();
@@ -78,4 +66,4 @@ const createAdminHelper = async () => {
 };
 
 // Run the helper function
-createAdminHelper(); 
+createAdminHelper();

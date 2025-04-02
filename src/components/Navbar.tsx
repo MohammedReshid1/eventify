@@ -1,41 +1,39 @@
-import { Link } from "react-router-dom";
+import { Menu, X, Search } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useToast } from "@/components/ui/use-toast";
 import { Button } from "./ui/button";
-import { Menu, X, Ticket, User, LogOut, Moon, Sun, Settings, Search, LogIn, Monitor } from "lucide-react";
-import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-} from "@/components/ui/dropdown-menu";
-import { useToast } from "@/components/ui/use-toast";
-import { useNavigate } from "react-router-dom";
-import { useTheme } from "./ThemeProvider";
 import { useMobile } from "@/hooks/use-mobile";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserProfile } from "@/types";
+import { NavbarLogo } from "./navbar/NavbarLogo";
+import { NavLinks } from "./navbar/NavLinks";
+import { AuthButtons } from "./navbar/AuthButtons";
+import { UserActionButtons } from "./navbar/UserActionButtons";
+import { MobileMenu } from "./navbar/MobileMenu";
+
+const ADMIN_EMAIL = "eventify.dablietech@gmail.com";
 
 interface NavbarProps {
   isAdminLoggedIn?: boolean;
 }
-
 export function Navbar({ isAdminLoggedIn = false }: NavbarProps) {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const navigate = useNavigate();
   const isMobile = useMobile();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Load user data from session
+    const loadUserSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
-    });
+    };
+    
+    loadUserSession();
 
     const {
       data: { subscription },
@@ -45,6 +43,27 @@ export function Navbar({ isAdminLoggedIn = false }: NavbarProps) {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Fetch user profile when user changes - optimized with useMemo
+  useEffect(() => {
+    if (user?.id) {
+      const fetchProfile = async () => {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+          
+        if (!error && data) {
+          setUserProfile(data);
+        }
+      };
+      
+      fetchProfile();
+    } else {
+      setUserProfile(null);
+    }
+  }, [user]);
 
   const { data: hasEvents } = useQuery({
     queryKey: ["user-has-events", user?.id],
@@ -61,6 +80,9 @@ export function Navbar({ isAdminLoggedIn = false }: NavbarProps) {
     enabled: !!user?.id,
   });
 
+  // Calculate isAdmin once when user changes
+  const isAdmin = useMemo(() => user?.email === ADMIN_EMAIL, [user?.email]);
+
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
@@ -74,19 +96,10 @@ export function Navbar({ isAdminLoggedIn = false }: NavbarProps) {
     }
   };
 
-  const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
-  };
-
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-[#F97316] flex items-center justify-center">
-            <Ticket className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-2xl font-bold text-[#F97316]">Eventify</span>
-        </Link>
+        <NavbarLogo />
 
         {/* Search button for mobile that redirects to /events */}
         {isMobile && (
@@ -110,228 +123,28 @@ export function Navbar({ isAdminLoggedIn = false }: NavbarProps) {
         </button>
         
         <div className="hidden items-center gap-4 md:flex">
-          <Link to="/events" className="text-muted-foreground hover:text-foreground">
-            Explore Events
-          </Link>
-          {user && (
-            <Link to="/my-tickets" className="text-muted-foreground hover:text-foreground">
-              My Tickets
-            </Link>
-          )}
-          <Link to="/contact" className="text-muted-foreground hover:text-foreground">
-            Contact Us
-          </Link>
+          <NavLinks user={user} />
+          
           {user ? (
-            <>
-              <Link to="/create-event">
-                <Button variant="outline" className="border-[#F97316] text-[#F97316] hover:bg-[#F97316] hover:text-white">
-                  Create Event
-                </Button>
-              </Link>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src="" alt="Profile" />
-                      <AvatarFallback className="bg-primary text-white">
-                        {isAdminLoggedIn ? 'AD' : 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {isAdminLoggedIn ? 'Admin User' : 'User'}
-                      </p>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        {isAdminLoggedIn ? 'admin@findevent.com' : 'user@example.com'}
-                      </p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {isAdminLoggedIn && (
-                    <DropdownMenuItem 
-                      className="cursor-pointer"
-                      onClick={() => navigate('/admin/dashboard')}
-                    >
-                      Admin Dashboard
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem 
-                    className="cursor-pointer"
-                    onClick={() => navigate('/dashboard')}
-                  >
-                    Dashboard
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    className="cursor-pointer"
-                    onClick={() => navigate('/my-tickets')}
-                  >
-                    My Tickets
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    className="cursor-pointer"
-                    onClick={() => navigate('/account')}
-                  >
-                    Account Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem 
-                    className="cursor-pointer text-red-500 focus:text-red-500"
-                    onClick={handleSignOut}
-                  >
-                    Sign Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
+            <UserActionButtons 
+              user={user} 
+              userProfile={userProfile} 
+              isAdmin={isAdmin} 
+              isAdminLoggedIn={isAdminLoggedIn} 
+              onSignOut={handleSignOut} 
+            />
           ) : (
-            <>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    {theme === "dark" ? (
-                      <Moon className="h-5 w-5" />
-                    ) : theme === "system" ? (
-                      <Monitor className="h-5 w-5" />
-                    ) : (
-                      <Sun className="h-5 w-5" />
-                    )}
-                    <span className="sr-only">Toggle theme</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
-                    <DropdownMenuRadioItem value="light">
-                      <Sun className="mr-2 h-4 w-4" />
-                      <span>Light</span>
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="dark">
-                      <Moon className="mr-2 h-4 w-4" />
-                      <span>Dark</span>
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="system">
-                      <Monitor className="mr-2 h-4 w-4" />
-                      <span>System</span>
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Link to="/auth">
-                <Button className="bg-[#F97316] hover:bg-[#FB923C] text-white">
-                  Sign In
-                </Button>
-              </Link>
-            </>
+            <AuthButtons />
           )}
         </div>
 
-        {isMenuOpen && (
-          <div className="absolute left-0 top-16 w-full bg-background p-4 shadow-lg md:hidden border-b z-50">
-            <div className="flex flex-col space-y-4">
-              <Link
-                to="/events"
-                className="text-muted-foreground hover:text-foreground"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Explore Events
-              </Link>
-              {user && (
-                <Link
-                  to="/my-tickets"
-                  className="text-muted-foreground hover:text-foreground"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  My Tickets
-                </Link>
-              )}
-              <Link
-                to="/contact"
-                className="text-muted-foreground hover:text-foreground"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Contact Us
-              </Link>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="justify-start p-2 w-full"
-                  >
-                    {theme === "dark" ? (
-                      <Moon className="mr-2 h-4 w-4" />
-                    ) : theme === "system" ? (
-                      <Monitor className="mr-2 h-4 w-4" />
-                    ) : (
-                      <Sun className="mr-2 h-4 w-4" />
-                    )}
-                    {theme === "dark" ? "Dark Mode" : theme === "system" ? "System Theme" : "Light Mode"}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuRadioGroup value={theme} onValueChange={(value) => {
-                    setTheme(value as Theme);
-                    setIsMenuOpen(false);
-                  }}>
-                    <DropdownMenuRadioItem value="light">
-                      <Sun className="mr-2 h-4 w-4" />
-                      <span>Light</span>
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="dark">
-                      <Moon className="mr-2 h-4 w-4" />
-                      <span>Dark</span>
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="system">
-                      <Monitor className="mr-2 h-4 w-4" />
-                      <span>System</span>
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {user ? (
-                <>
-                  <Link to="/create-event" onClick={() => setIsMenuOpen(false)}>
-                    <Button
-                      variant="outline"
-                      className="w-full border-[#F97316] text-[#F97316] hover:bg-[#F97316] hover:text-white"
-                    >
-                      Create Event
-                    </Button>
-                  </Link>
-                  <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
-                    <Button
-                      variant="outline"
-                      className="w-full border-[#F97316] text-[#F97316] hover:bg-[#F97316] hover:text-white"
-                    >
-                      Dashboard
-                    </Button>
-                  </Link>
-                  <Button
-                    variant="default"
-                    className="w-full bg-red-500 hover:bg-red-600"
-                    onClick={() => {
-                      handleSignOut();
-                      setIsMenuOpen(false);
-                    }}
-                  >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Sign Out
-                  </Button>
-                </>
-              ) : (
-                <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
-                  <Button
-                    className="w-full bg-[#F97316] hover:bg-[#FB923C] text-white"
-                  >
-                    Sign In
-                  </Button>
-                </Link>
-              )}
-            </div>
-          </div>
-        )}
+        <MobileMenu 
+          isMenuOpen={isMenuOpen} 
+          user={user} 
+          isAdmin={isAdmin} 
+          onCloseMenu={() => setIsMenuOpen(false)} 
+          onSignOut={handleSignOut}
+        />
       </div>
     </nav>
   );

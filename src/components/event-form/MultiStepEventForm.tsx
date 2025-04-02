@@ -19,7 +19,7 @@ interface MultiStepEventFormProps {
 }
 
 const steps = [
-  { id: "step-1", name: "Basic Info", fields: ["title", "description", "category"] },
+  { id: "step-1", name: "Basic Info", fields: ["title", "description", "categoryId"] },
   { id: "step-2", name: "Date & Time", fields: ["startDate", "endDate"] },
   { id: "step-3", name: "Location", fields: ["location", "isVirtual"] },
   { id: "step-4", name: "Tickets", fields: ["ticketPrice", "ticketQuantity", "isTicketFree", "unlimitedTickets"] },
@@ -186,7 +186,7 @@ export function MultiStepEventForm({ categories }: MultiStepEventFormProps) {
                     <div className="text-sm text-gray-600 space-y-1">
                       <p><span className="font-medium">Title:</span> {form.getValues("title")}</p>
                       <p><span className="font-medium">Description:</span> {form.getValues("description")?.substring(0, 100)}...</p>
-                      <p><span className="font-medium">Category:</span> {categories.find(c => c.id === form.getValues("category"))?.name || "Not specified"}</p>
+                      <p><span className="font-medium">Category:</span> {categories.find(c => c.id === form.getValues("categoryId"))?.name || "Not specified"}</p>
                     </div>
                   </div>
 
@@ -264,4 +264,4 @@ export function MultiStepEventForm({ categories }: MultiStepEventFormProps) {
       </Form>
     </div>
   );
-} 
+}

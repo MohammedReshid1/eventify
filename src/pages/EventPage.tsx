@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -20,7 +21,6 @@ import {
 import { useState, useEffect } from "react";
 import { Loader2, MapPin, Calendar, PartyPopper, Clock, Tag, Users } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { events as mockEvents } from "@/data/mockData";
 
 const EventPage = () => {
   const { slug } = useParams();
@@ -33,49 +33,40 @@ const EventPage = () => {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
 
-  // Check for user authentication from localStorage instead of Supabase
+  // Check for user authentication from Supabase
   useEffect(() => {
-    const userEmail = localStorage.getItem('user_email');
-    if (userEmail) {
-      setUser({ email: userEmail });
-    }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
   }, []);
 
-  // Get event from mock data instead of Supabase
+  // Get event from Supabase
   const { data: event, isLoading } = useQuery({
     queryKey: ["event", slug],
     queryFn: async () => {
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 800));
+      const { data, error } = await supabase
+        .from("events")
+        .select(`
+          *,
+          categories:categories (id, name),
+          tickets (*)
+        `)
+        .eq("slug", slug)
+        .eq("status", "published")
+        .single();
+
+      if (error) throw error;
       
-      // Find the event by slug
-      const foundEvent = mockEvents.find(e => e.slug === slug);
-      
-      if (!foundEvent) {
-        throw new Error("Event not found");
-      }
-      
-      // Add ticket types to the mock event
+      // Calculate tickets available and sold
+      const totalTickets = data.tickets.reduce((sum: number, ticket: any) => sum + ticket.quantity, 0);
+      const ticketsSold = data.tickets.reduce((sum: number, ticket: any) => 
+        sum + (ticket.quantity - ticket.remaining), 0);
+        
       return {
-        ...foundEvent,
-        start_date: foundEvent.date,
-        end_date: new Date(new Date(foundEvent.date).getTime() + 3 * 60 * 60 * 1000).toISOString(), // 3 hours after start date
-        tickets: [
-          {
-            id: "standard-ticket",
-            name: "Standard Ticket",
-            price: foundEvent.price || 0,
-            type: foundEvent.price > 0 ? "paid" : "free",
-            remaining: Math.floor(Math.random() * 50) + 10,
-          },
-          {
-            id: "vip-ticket",
-            name: "VIP Ticket",
-            price: (foundEvent.price || 50) * 2,
-            type: "paid",
-            remaining: Math.floor(Math.random() * 20) + 5,
-          }
-        ]
+        ...data,
+        category: data.categories, // Normalize the category data for compatibility
+        tickets_available: totalTickets,
+        tickets_sold: ticketsSold
       };
     },
   });
@@ -110,45 +101,110 @@ const EventPage = () => {
     setIsRegistering(true);
 
     try {
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Store ticket in localStorage for frontend demo
-      const myTickets = JSON.parse(localStorage.getItem('my_tickets') || '[]');
-      const ticketId = `ticket-${Date.now()}`;
-      
-      const newTicket = {
-        id: ticketId,
-        event_id: event.id,
-        event_title: event.title,
-        event_date: event.start_date,
-        event_location: event.location,
-        event_image: event.image_url || event.banner_image,
-        ticket_type: ticket.name,
-        price: ticket.price,
-        quantity: parseInt(quantity),
-        total_amount: ticket.price * parseInt(quantity),
-        purchase_date: new Date().toISOString(),
-        status: "confirmed"
-      };
-      
-      myTickets.push(newTicket);
-      localStorage.setItem('my_tickets', JSON.stringify(myTickets));
+      // Check if ticket is free
+      if (ticket.type === "free" || ticket.price === 0) {
+        // Handle free ticket registration directly
+        const { data, error } = await supabase.from("orders").insert({
+          user_id: user.id,
+          event_id: event.id,
+          ticket_id: selectedTicket,
+          quantity: parseInt(quantity),
+          total_amount: 0,
+          payment_status: "completed",
+        }).select().single();
 
-      setShowConfirmDialog(false);
-      setShowSuccessDialog(true);
+        if (error) throw error;
 
-      setTimeout(() => {
-        setShowSuccessDialog(false);
-        navigate("/my-tickets");
-      }, 3000);
+        // Update ticket remaining count
+        const { error: updateError } = await supabase
+          .from("tickets")
+          .update({ 
+            remaining: ticket.remaining - parseInt(quantity) 
+          })
+          .eq("id", selectedTicket);
+        
+        if (updateError) {
+          console.error("Error updating ticket remaining count:", updateError);
+        }
+
+        // Update event stats
+        const { error: eventUpdateError } = await supabase
+          .from("events")
+          .update({ 
+            total_registrations: (event.total_registrations || 0) + parseInt(quantity),
+            total_revenue: (event.total_revenue || 0)
+          })
+          .eq("id", event.id);
+        
+        if (eventUpdateError) {
+          console.error("Error updating event stats:", eventUpdateError);
+        }
+
+        setShowConfirmDialog(false);
+        setShowSuccessDialog(true);
+
+        // Send registration email
+        try {
+          await supabase.functions.invoke(
+            "send-registration-email",
+            {
+              body: {
+                userEmail: user.email,
+                eventTitle: event.title,
+                eventDate: new Date(event.start_date).toLocaleDateString(),
+                eventLocation: event.location,
+                eventImageUrl: event.image_url || event.banner_image,
+                eventDescription: event.description || "No description available",
+                meetingUrl: event.is_virtual ? event.virtual_meeting_link : undefined,
+                ticketType: ticket.name,
+                quantity: parseInt(quantity),
+                ticketId: `${data.id}-${event.id}-${selectedTicket}`,
+              },
+            }
+          );
+        } catch (emailErr) {
+          console.error("Failed to send email, but order was created:", emailErr);
+        }
+
+        setTimeout(() => {
+          setShowSuccessDialog(false);
+          navigate("/my-tickets");
+        }, 3000);
+      } else {
+        // Handle paid ticket via Chapa payment
+        const token = await supabase.auth.getSession();
+        const authToken = token.data.session?.access_token;
+
+        // Call our payment process edge function
+        const response = await fetch(`${window.location.origin}/functions/payment-process`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({
+            ticketId: selectedTicket,
+            quantity: parseInt(quantity),
+            eventId: event.id
+          })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Payment initialization failed');
+        }
+
+        // Redirect user to Chapa payment page
+        setShowConfirmDialog(false);
+        window.location.href = result.payment_url;
+      }
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message,
         variant: "destructive",
       });
-    } finally {
       setIsRegistering(false);
     }
   };
@@ -339,7 +395,7 @@ const EventPage = () => {
               <div className="border-t pt-2 mt-2">
                 <p className="font-medium">Ticket Details:</p>
                 <p>{event.tickets.find((t: any) => t.id === selectedTicket)?.name} x {quantity}</p>
-                <p className="font-bold mt-2">
+                <p className="font-bold mt-2 text-foreground">
                   Total: {event.tickets.find((t: any) => t.id === selectedTicket)?.price === 0 ? 
                     "Free" : 
                     `${(event.tickets.find((t: any) => t.id === selectedTicket)?.price * parseInt(quantity)).toFixed(2)} ETB`

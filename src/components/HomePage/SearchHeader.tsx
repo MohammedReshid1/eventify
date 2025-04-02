@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { Search, MapPin, Calendar, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useMobile } from "@/hooks/use-mobile";
+import { Search, MapPin, ArrowRight, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
 
 interface SearchHeaderProps {
@@ -14,11 +15,20 @@ const SearchHeader: React.FC<SearchHeaderProps> = ({ onSearch }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchLocation, setSearchLocation] = useState("");
   const [activeTab, setActiveTab] = useState("events");
-  const isMobile = useMobile();
+  const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSearch(searchQuery);
+    if (searchQuery.trim()) {
+      onSearch(searchQuery);
+    }
+  };
+
+  const handleLocationSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchLocation.trim()) {
+      onSearch(`location:${searchLocation}`);
+    }
   };
 
   const fadeIn = {
@@ -32,13 +42,16 @@ const SearchHeader: React.FC<SearchHeaderProps> = ({ onSearch }) => {
     }
   };
 
+  // Background image pattern using inline SVG instead of external image
+  const backgroundPattern = `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.2'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`;
+
   return (
     <div className="relative mb-16 overflow-hidden">
-      {/* Background with parallax effect */}
+      {/* Background with gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-orange-600 to-amber-600 dark:from-gray-900 dark:to-gray-800">
         <div className="absolute inset-0 opacity-20" 
           style={{ 
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.2'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            backgroundImage: backgroundPattern,
             backgroundSize: "30px 30px"
           }}
         />
@@ -61,7 +74,7 @@ const SearchHeader: React.FC<SearchHeaderProps> = ({ onSearch }) => {
             </p>
             <div className="flex flex-col space-y-4 sm:flex-row sm:space-x-4 sm:space-y-0">
               <Button
-                onClick={() => window.location.href = '/create-event'}
+                onClick={() => navigate('/create-event')}
                 className="bg-white text-orange-600 hover:bg-orange-50"
                 size="lg"
               >
@@ -69,7 +82,7 @@ const SearchHeader: React.FC<SearchHeaderProps> = ({ onSearch }) => {
                 Create Event
               </Button>
               <Button
-                onClick={() => window.location.href = '/events'}
+                onClick={() => navigate('/events')}
                 variant="outline"
                 className="border-white text-white hover:bg-white/10"
                 size="lg"
@@ -132,7 +145,7 @@ const SearchHeader: React.FC<SearchHeaderProps> = ({ onSearch }) => {
                 </TabsContent>
                 
                 <TabsContent value="location" className="mt-0">
-                  <form className="relative w-full">
+                  <form onSubmit={handleLocationSearch} className="relative w-full">
                     <div className="relative">
                       <MapPin className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-orange-500 dark:text-orange-400" />
                       <input
@@ -152,10 +165,6 @@ const SearchHeader: React.FC<SearchHeaderProps> = ({ onSearch }) => {
                     <Button
                       type="submit"
                       className="w-full mt-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        onSearch(`location:${searchLocation}`);
-                      }}
                     >
                       Find Nearby Events
                     </Button>

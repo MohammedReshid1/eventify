@@ -109,38 +109,56 @@ export type Database = {
       }
       orders: {
         Row: {
+          commission_amount: number | null
           created_at: string | null
           event_id: string | null
           id: string
+          organizer_amount: number | null
+          organizer_transfer_status: string | null
           payment_method: string | null
+          payment_reference: string | null
           payment_status: string | null
           quantity: number
           ticket_id: string | null
           total_amount: number
+          transfer_date: string | null
+          transfer_reference: string | null
           updated_at: string | null
           user_id: string | null
         }
         Insert: {
+          commission_amount?: number | null
           created_at?: string | null
           event_id?: string | null
           id?: string
+          organizer_amount?: number | null
+          organizer_transfer_status?: string | null
           payment_method?: string | null
+          payment_reference?: string | null
           payment_status?: string | null
           quantity: number
           ticket_id?: string | null
           total_amount: number
+          transfer_date?: string | null
+          transfer_reference?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
         Update: {
+          commission_amount?: number | null
           created_at?: string | null
           event_id?: string | null
           id?: string
+          organizer_amount?: number | null
+          organizer_transfer_status?: string | null
           payment_method?: string | null
+          payment_reference?: string | null
           payment_status?: string | null
           quantity?: number
           ticket_id?: string | null
           total_amount?: number
+          transfer_date?: string | null
+          transfer_reference?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
@@ -160,6 +178,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          id: string
+          role: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          id: string
+          role?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          role?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       tickets: {
         Row: {
@@ -207,6 +249,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "tickets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transfers: {
+        Row: {
+          account_details: Json | null
+          amount: number
+          created_at: string | null
+          event_id: string
+          id: string
+          organizer_id: string
+          reference: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_details?: Json | null
+          amount: number
+          created_at?: string | null
+          event_id: string
+          id?: string
+          organizer_id: string
+          reference?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_details?: Json | null
+          amount?: number
+          created_at?: string | null
+          event_id?: string
+          id?: string
+          organizer_id?: string
+          reference?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfers_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"

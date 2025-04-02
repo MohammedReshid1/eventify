@@ -1,16 +1,11 @@
 
-import React, { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter
-} from "@/components/ui/dialog";
-import { ScanLine, XCircle, CheckCircle2 } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Loader2, QrCode, CheckCircle, XCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import QrScanner from "qr-scanner";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 
 interface QrCodeScannerProps {
@@ -19,319 +14,237 @@ interface QrCodeScannerProps {
 
 export function QrCodeScanner({ eventId }: QrCodeScannerProps) {
   const { toast } = useToast();
+  const [isOpen, setIsOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
-  const [validationResult, setValidationResult] = useState<{
-    valid: boolean;
-    message: string;
-    ticket?: any;
-    event?: any;
-  } | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const scannerActive = useRef<boolean>(false);
+  const [scanResult, setScanResult] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isValid, setIsValid] = useState<boolean | null>(null);
+  const [orderData, setOrderData] = useState<any | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const scannerRef = useRef<QrScanner | null>(null);
 
-  const startScanner = async () => {
-    setValidationResult(null);
-    setIsScanning(true);
-    scannerActive.current = true;
-    
-    try {
-      // Request camera access
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" }
-      });
-      
-      streamRef.current = stream;
-      
-      // Set up video stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-        
-        // Start scanning for QR codes
-        scanQRCode();
+  // Clean up scanner when component unmounts or dialog closes
+  useEffect(() => {
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.stop();
+        scannerRef.current.destroy();
+        scannerRef.current = null;
       }
-    } catch (error) {
-      console.error("Error accessing camera:", error);
-      toast({
-        variant: "destructive",
-        title: "Camera Error",
-        description: "Could not access the camera. Please ensure camera permissions are granted.",
-      });
-      setIsScanning(false);
-      scannerActive.current = false;
+    };
+  }, []);
+
+  const startScanner = () => {
+    setIsScanning(true);
+    setScanResult(null);
+    setIsValid(null);
+    setOrderData(null);
+
+    if (videoRef.current) {
+      scannerRef.current = new QrScanner(
+        videoRef.current,
+        (result) => {
+          handleScanResult(result.data);
+        },
+        {
+          returnDetailedScanResult: true,
+          highlightScanRegion: true,
+          highlightCodeOutline: true,
+        }
+      );
+
+      try {
+        // Start returns a promise, but we don't need to await it
+        scannerRef.current.start();
+      } catch (err) {
+        console.error("Failed to start scanner:", err);
+        toast({
+          variant: "destructive",
+          title: "Camera Error",
+          description: "Failed to access camera. Please check permissions.",
+        });
+        setIsScanning(false);
+      }
     }
   };
 
   const stopScanner = () => {
-    // Stop all video streams
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
+    if (scannerRef.current) {
+      scannerRef.current.stop();
+      scannerRef.current.destroy();
+      scannerRef.current = null;
     }
-    
-    scannerActive.current = false;
     setIsScanning(false);
   };
 
-  const closeDialog = () => {
-    stopScanner();
-    setValidationResult(null);
-  };
-
-  const scanQRCode = async () => {
-    if (!videoRef.current || !streamRef.current) return;
-    
+  const handleScanResult = async (result: string) => {
     try {
-      // Import QR code scanner library dynamically to reduce initial bundle size
-      const jsQR = (await import("jsqr")).default;
-      
-      // Create canvas to analyze video frames
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      
-      if (!ctx) return;
-      
-      const checkFrame = () => {
-        // If scanner is no longer active, stop checking frames
-        if (!scannerActive.current) return;
-        if (!videoRef.current || !streamRef.current) return;
-        
-        const { videoWidth, videoHeight } = videoRef.current;
-        
-        if (videoWidth && videoHeight) {
-          // Set canvas size to match video
-          canvas.width = videoWidth;
-          canvas.height = videoHeight;
-          
-          // Draw current video frame to canvas for analysis
-          ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-          
-          // Get image data for QR code detection
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          
-          // Detect QR code in the image
-          const code = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: "dontInvert",
-          });
-          
-          // If QR code is detected
-          if (code) {
-            console.log("QR code detected:", code.data);
-            // Stop scanning and validate the ticket
-            validateTicket(code.data);
-            return;
-          }
-        }
-        
-        // Continue scanning
-        requestAnimationFrame(checkFrame);
-      };
-      
-      requestAnimationFrame(checkFrame);
-      
-    } catch (error) {
-      console.error("QR scanning error:", error);
-      toast({
-        variant: "destructive",
-        title: "Scanning Error",
-        description: "An error occurred while scanning. Please try again.",
-      });
+      setScanResult(result);
       stopScanner();
-    }
-  };
+      setIsVerifying(true);
 
-  const validateTicket = async (qrData: string) => {
-    try {
-      console.log("Validating ticket:", qrData);
-      // Assuming QR data format is "orderId-eventId-ticketId"
-      const [orderId, scannedEventId, ticketId] = qrData.split("-");
-      
-      // Stop scanner while validating
-      stopScanner();
-      
-      // Check if the scanned ticket is for this event
-      if (scannedEventId !== eventId) {
-        setValidationResult({
-          valid: false,
-          message: "This ticket is for a different event"
-        });
-        return;
+      // Try to parse the QR code result as a JSON object
+      let ticketData;
+      try {
+        ticketData = JSON.parse(result);
+      } catch (e) {
+        // If it's not valid JSON, use it as-is (it might be just an order ID)
+        ticketData = { orderId: result };
       }
-      
-      // Get ticket details from the database
-      const { data: orderData, error: orderError } = await supabase
+
+      const orderId = ticketData.orderId || result;
+
+      // Verify the ticket against our database
+      const { data, error } = await supabase
         .from("orders")
         .select(`
-          *,
-          event:events (
-            title,
-            start_date,
-            end_date,
-            location,
-            status
-          ),
-          ticket:tickets (
-            name,
-            price,
-            type
-          )
+          id,
+          quantity,
+          user_id,
+          event_id,
+          payment_status,
+          created_at,
+          ticket:tickets (name, price, type),
+          user:user_id (email)
         `)
         .eq("id", orderId)
         .eq("event_id", eventId)
-        .eq("ticket_id", ticketId)
         .single();
-      
-      if (orderError || !orderData) {
-        console.error("Order error:", orderError);
-        setValidationResult({
-          valid: false,
-          message: "Invalid ticket or ticket not found"
-        });
-        return;
+
+      if (error) {
+        throw error;
       }
-      
-      console.log("Order data:", orderData);
-      
-      // Check if event has already ended
-      const eventEnded = new Date(orderData.event.end_date) < new Date();
-      if (eventEnded) {
-        setValidationResult({
-          valid: false,
-          message: "Event has already ended",
-          ticket: orderData.ticket,
-          event: orderData.event
+
+      if (!data) {
+        setIsValid(false);
+        toast({
+          variant: "destructive",
+          title: "Invalid Ticket",
+          description: "This ticket does not exist or is not for this event.",
         });
-        return;
+      } else {
+        const isValidPayment = 
+          data.payment_status === "completed" || 
+          (data.ticket && (data.ticket.type === "free" || parseFloat(String(data.ticket.price)) === 0));
+
+        setIsValid(isValidPayment);
+        setOrderData(data);
+
+        if (isValidPayment) {
+          toast({
+            title: "Valid Ticket",
+            description: "This ticket is valid.",
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Invalid Ticket",
+            description: "Payment for this ticket is not completed.",
+          });
+        }
       }
-      
-      // Check if event is published/active
-      if (orderData.event.status !== "published") {
-        setValidationResult({
-          valid: false,
-          message: `Event is not active (status: ${orderData.event.status})`,
-          ticket: orderData.ticket,
-          event: orderData.event
-        });
-        return;
-      }
-      
-      // Check payment status for paid tickets
-      const isFreeTicket = orderData.ticket.type === "free" || parseFloat(orderData.ticket.price) === 0;
-      
-      if (!isFreeTicket && orderData.payment_status !== "completed") {
-        setValidationResult({
-          valid: false,
-          message: `Payment not complete (status: ${orderData.payment_status})`,
-          ticket: orderData.ticket,
-          event: orderData.event
-        });
-        return;
-      }
-      
-      // Ticket is valid
-      setValidationResult({
-        valid: true,
-        message: "Ticket is valid",
-        ticket: orderData.ticket,
-        event: orderData.event
-      });
-      
-      toast({
-        title: "Scan Successful",
-        description: "Ticket has been successfully validated.",
-        variant: "default",
-      });
-      
     } catch (error) {
-      console.error("Ticket validation error:", error);
-      setValidationResult({
-        valid: false,
-        message: "Error validating ticket"
-      });
-      
+      console.error("Verification error:", error);
+      setIsValid(false);
       toast({
-        title: "Validation Failed",
-        description: "There was an error validating the ticket.",
         variant: "destructive",
+        title: "Verification Error",
+        description: "An error occurred while verifying the ticket.",
       });
+    } finally {
+      setIsVerifying(false);
     }
+  };
+
+  const resetScanner = () => {
+    setScanResult(null);
+    setIsValid(null);
+    setOrderData(null);
+    startScanner();
   };
 
   return (
     <>
-      <Button 
-        onClick={startScanner} 
-        variant="default"
-        className="bg-[#F97316] hover:bg-[#FB923C] text-white flex items-center gap-2"
-        size="sm"
+      <Button
+        variant="outline"
+        className="flex items-center gap-2 border-purple-500 text-purple-500 hover:bg-purple-500 hover:text-white"
+        onClick={() => setIsOpen(true)}
       >
-        <ScanLine className="h-4 w-4" />
-        Scan
+        <QrCode className="h-4 w-4" />
+        Scan Tickets
       </Button>
-      
-      <Dialog open={isScanning} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent className="max-w-md">
+
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Scan Ticket QR Code</DialogTitle>
-            <DialogDescription>
-              Position the QR code within the camera view to validate the ticket.
-            </DialogDescription>
           </DialogHeader>
-          
-          {!validationResult ? (
-            <div className="relative overflow-hidden rounded-lg">
-              <video 
-                ref={videoRef} 
-                className="w-full aspect-square object-cover"
-                playsInline
-                muted
-              />
-              <div className="absolute inset-0 border-2 border-[#F97316] opacity-70 pointer-events-none" />
-              <div className="absolute top-1/2 left-1/2 w-3/4 h-[1px] bg-[#F97316] opacity-50 transform -translate-x-1/2" />
-              <div className="absolute top-1/2 left-1/2 w-[1px] h-3/4 bg-[#F97316] opacity-50 transform -translate-y-1/2" />
-            </div>
-          ) : (
-            <div className="py-6">
-              <div className="flex justify-center mb-4">
-                {validationResult.valid ? (
-                  <CheckCircle2 className="h-16 w-16 text-green-500" />
-                ) : (
-                  <XCircle className="h-16 w-16 text-red-500" />
+
+          <div className="flex flex-col items-center gap-4">
+            {!scanResult && (
+              <div className="relative aspect-video w-full overflow-hidden rounded-lg border">
+                <video
+                  ref={videoRef}
+                  className="h-full w-full object-cover"
+                />
+                {!isScanning && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                    <Button onClick={startScanner}>Start Scanner</Button>
+                  </div>
                 )}
               </div>
-              
-              <h3 className={`text-xl font-semibold text-center ${
-                validationResult.valid ? "text-green-700" : "text-red-700"
-              }`}>
-                {validationResult.valid ? "Valid Ticket" : "Invalid Ticket"}
-              </h3>
-              
-              <p className="text-center text-gray-600 mt-2">
-                {validationResult.message}
-              </p>
-              
-              {validationResult.ticket && validationResult.event && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                  <p><span className="font-medium">Event:</span> {validationResult.event.title}</p>
-                  <p><span className="font-medium">Ticket:</span> {validationResult.ticket.name}</p>
-                  <p><span className="font-medium">Date:</span> {new Date(validationResult.event.start_date).toLocaleDateString()}</p>
-                  <p><span className="font-medium">Location:</span> {validationResult.event.location}</p>
-                </div>
-              )}
-            </div>
-          )}
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>
-              Close
-            </Button>
-            {!validationResult && (
-              <Button onClick={stopScanner} variant="destructive">
-                Stop Scanning
-              </Button>
             )}
-          </DialogFooter>
+
+            {isVerifying && (
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <span>Verifying ticket...</span>
+              </div>
+            )}
+
+            {isValid !== null && (
+              <div className={cn(
+                "mt-2 flex w-full flex-col gap-2 rounded-lg p-4",
+                isValid ? "bg-green-50" : "bg-red-50"
+              )}>
+                <div className="flex items-center gap-2">
+                  {isValid ? (
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-red-500" />
+                  )}
+                  <span className={isValid ? "text-green-700" : "text-red-700"}>
+                    {isValid ? "Valid Ticket" : "Invalid Ticket"}
+                  </span>
+                </div>
+                
+                {orderData && (
+                  <div className="mt-2 text-sm">
+                    <p><strong>Order ID:</strong> {orderData.id.substring(0, 8)}...</p>
+                    <p><strong>Ticket:</strong> {orderData.ticket?.name}</p>
+                    <p><strong>Quantity:</strong> {orderData.quantity}</p>
+                    <p><strong>Status:</strong> {orderData.payment_status}</p>
+                    <p><strong>Purchased:</strong> {new Date(orderData.created_at).toLocaleString()}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex w-full justify-between gap-2">
+              {scanResult ? (
+                <Button onClick={resetScanner} variant="outline">
+                  Scan Another
+                </Button>
+              ) : (
+                <Button onClick={() => setIsOpen(false)} variant="outline">
+                  Cancel
+                </Button>
+              )}
+              <Button onClick={() => setIsOpen(false)}>
+                Done
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </>

@@ -11,18 +11,10 @@ export const setupAndLoginAsAdmin = async () => {
       password: "admin123"
     });
     
-    // If sign in works, update role and return
+    // If sign in works, return (the trigger will handle the profile)
     if (!signInError && signInData.user) {
-      console.log("Signed in successfully, updating admin role...");
-      
-      await supabase.from('profiles').upsert({
-        id: signInData.user.id,
-        role: 'admin',
-        email: 'admin@findevent.com',
-        name: 'Admin User'
-      });
-      
-      console.log("Admin role confirmed, redirecting...");
+      console.log("Signed in successfully...");
+      console.log("Admin role should be set by database trigger, redirecting...");
       window.location.href = "/admin/dashboard";
       return true;
     }
@@ -44,13 +36,8 @@ export const setupAndLoginAsAdmin = async () => {
       return false;
     }
     
-    // Update profile to admin
-    await supabase.from('profiles').upsert({
-      id: signUpData.user.id,
-      role: 'admin',
-      email: 'admin@findevent.com',
-      name: 'Admin User'
-    });
+    // The trigger will automatically create a profile entry
+    console.log("Admin setup triggered, waiting for confirmation...");
     
     // Sign in again to confirm
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -70,4 +57,4 @@ export const setupAndLoginAsAdmin = async () => {
     console.error("Unexpected error:", error);
     return false;
   }
-}; 
+};

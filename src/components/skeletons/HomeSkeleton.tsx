@@ -1,75 +1,107 @@
+import React from 'react';
 import { Skeleton } from "@/components/ui/skeleton";
 
-const HomeSkeleton = () => {
+const HomeSkeleton: React.FC = () => {
   return (
-    <div>
-      {/* Hero Section Skeleton */}
-      <div className="relative mb-12 overflow-hidden">
-        <div className="h-[400px] w-full bg-gradient-to-r from-orange-500/50 to-orange-400/50 animate-pulse">
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
-            <Skeleton className="h-10 w-3/4 max-w-lg mb-4" />
-            <Skeleton className="h-5 w-2/4 max-w-md mb-8" />
-            <div className="w-full max-w-md">
-              <Skeleton className="h-12 w-full rounded-lg" />
+    <div className="py-0">
+      {/* Hero section skeleton */}
+      <div className="relative mb-16 overflow-hidden">
+        <div className="bg-gradient-to-br from-orange-600 to-amber-600 min-h-[300px]">
+          <div className="container relative z-10 mx-auto px-4 py-16 md:py-24">
+            <div className="flex flex-col items-center justify-between gap-8 md:flex-row">
+              <div className="max-w-xl">
+                <Skeleton className="h-14 w-[70%] mb-3" />
+                <Skeleton className="h-4 w-[90%] mb-2" />
+                <Skeleton className="h-4 w-[60%] mb-6" />
+                
+                <div className="flex space-x-4">
+                  <Skeleton className="h-10 w-32" />
+                  <Skeleton className="h-10 w-32" />
+                </div>
+              </div>
+              
+              <Skeleton className="w-full max-w-lg h-[220px] rounded-xl" />
             </div>
           </div>
         </div>
       </div>
 
       <div className="container">
-        {/* Categories Skeleton */}
+        {/* Category filter skeleton */}
+        <div className="mb-2">
+          <Skeleton className="h-8 w-48 mb-3" />
+        </div>
+        
         <div className="mb-8">
-          <Skeleton className="h-8 w-48 mb-4" />
-          <div className="flex gap-2 overflow-x-auto pb-4">
+          <div className="flex space-x-3 pb-4">
             {[...Array(6)].map((_, i) => (
-              <Skeleton key={i} className="h-10 w-32 shrink-0" />
+              <Skeleton key={i} className="h-10 w-24 rounded-md" />
             ))}
           </div>
         </div>
-
-        {/* Featured Events Skeleton */}
-        <div className="mb-12">
-          <div className="flex items-center justify-between mb-6">
+        
+        {/* Events section skeleton */}
+        <div className="w-full mb-12">
+          <div className="flex items-center justify-between mb-4">
             <Skeleton className="h-8 w-48" />
             <Skeleton className="h-8 w-24" />
           </div>
           
-          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="flex flex-col">
-                <Skeleton className="h-64 w-full rounded-t-lg" />
-                <div className="p-5 space-y-3">
-                  <Skeleton className="h-6 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-4 w-1/3" />
-                  <Skeleton className="h-10 w-full mt-4" />
+              <div key={i} className="flex flex-col gap-2">
+                <Skeleton className="h-48 w-full rounded-t-md" />
+                <Skeleton className="h-6 w-[80%] mx-4" />
+                <div className="mx-4 space-y-2 pb-4">
+                  <Skeleton className="h-4 w-[90%]" />
+                  <Skeleton className="h-4 w-[70%]" />
+                  <Skeleton className="h-4 w-[60%]" />
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Latest Events Skeleton */}
-        <div className="mb-12">
-          <div className="flex items-center justify-between mb-6">
+        {/* Another events section skeleton */}
+        <div className="w-full mb-12">
+          <div className="flex items-center justify-between mb-4">
             <Skeleton className="h-8 w-48" />
             <Skeleton className="h-8 w-24" />
           </div>
           
-          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="flex flex-col">
-                <Skeleton className="h-64 w-full rounded-t-lg" />
-                <div className="p-5 space-y-3">
-                  <Skeleton className="h-6 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-4 w-1/3" />
-                  <Skeleton className="h-10 w-full mt-4" />
+              <div key={i} className="flex flex-col gap-2">
+                <Skeleton className="h-48 w-full rounded-t-md" />
+                <Skeleton className="h-6 w-[80%] mx-4" />
+                <div className="mx-4 space-y-2 pb-4">
+                  <Skeleton className="h-4 w-[90%]" />
+                  <Skeleton className="h-4 w-[70%]" />
+                  <Skeleton className="h-4 w-[60%]" />
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* How it works section skeleton */}
+        <div className="mt-12 mb-20">
+          <div className="py-12 bg-orange-50 dark:bg-gray-900 rounded-lg">
+            <div className="text-center mb-8">
+              <Skeleton className="h-8 w-64 mx-auto mb-3" />
+              <Skeleton className="h-4 w-[50%] mx-auto" />
+            </div>
+            
+            <div className="grid gap-8 md:grid-cols-3 max-w-4xl mx-auto px-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="flex flex-col items-center text-center">
+                  <Skeleton className="h-16 w-16 rounded-full mb-4" />
+                  <Skeleton className="h-6 w-[70%] mb-2" />
+                  <Skeleton className="h-4 w-[90%]" />
+                  <Skeleton className="h-4 w-[80%] mt-1" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

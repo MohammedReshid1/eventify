@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 
 export function useMobile(): boolean {
@@ -21,3 +22,6 @@ export function useMobile(): boolean {
 
   return isMobile;
 }
+
+// Export an alias for components that expect this name
+export const useIsMobile = useMobile;

@@ -1,8 +1,15 @@
+
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { CalendarIcon, MapPin, Clock, Users } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { formatDate } from "@/lib/utils";
 import SearchHeader from "@/components/HomePage/SearchHeader";
+import FeaturedEvents from "@/components/HomePage/FeaturedEvents";
 import CategoryFilter from "@/components/HomePage/CategoryFilter";
 import EventsList from "@/components/HomePage/EventsList";
 import HomeContent from "@/components/HomePage/HomeContent";
@@ -17,7 +24,8 @@ export default function Index() {
   
   const { 
     events, 
-    latestEvents, 
+    latestEvents,
+    featuredEvents,
     loading: eventsLoading, 
     handleSearch,
     hasSearched 
@@ -70,6 +78,55 @@ export default function Index() {
       <SearchHeader onSearch={handleSearchSubmit} />
 
       <div className="container">
+        {/* Display Featured Events section if we have any */}
+        {featuredEvents && featuredEvents.length > 0 && !hasSearched && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-4">Featured Events</h2>
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              {featuredEvents.slice(0, 4).map((event) => (
+                <Card key={event.id} className="overflow-hidden hover:shadow-md transition-shadow duration-300">
+                  <Link to={`/events/${event.id}`} className="block">
+                    <div className="aspect-[16/9] w-full">
+                      <img
+                        src={event.banner_image || event.image_url || 'https://placehold.co/600x400/orange/white?text=Featured+Event'}
+                        alt={event.title}
+                        className="object-cover w-full h-full"
+                      />
+                    </div>
+                    <CardHeader className="p-4">
+                      <CardTitle className="text-lg line-clamp-1">{event.title}</CardTitle>
+                      <CardDescription className="line-clamp-2">{event.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0">
+                      <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+                        <div className="flex items-center">
+                          <Clock className="mr-2 h-4 w-4 text-orange-500" />
+                          <span>{formatDate(event.start_date)}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <MapPin className="mr-2 h-4 w-4 text-orange-500" />
+                          <span className="line-clamp-1">{event.location}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Link>
+                </Card>
+              ))}
+            </div>
+            {featuredEvents.length > 4 && (
+              <div className="flex justify-end mt-2">
+                <Button 
+                  variant="link" 
+                  onClick={() => navigate("/events?tab=featured")}
+                  className="text-orange-500"
+                >
+                  View All Featured Events
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="mb-2">
           <h2 className="text-xl font-semibold mb-3">Explore Categories</h2>
         </div>
@@ -82,7 +139,7 @@ export default function Index() {
         {hasSearched && (
           <EventsList
             title={`Search Results: ${searchQuery}`}
-            events={events}
+            events={events as any}
             emptyText="No events found matching your search"
             isSearchResult={true}
             searchQuery={searchQuery}
@@ -95,7 +152,7 @@ export default function Index() {
         {selectedCategory && !hasSearched && (
           <EventsList
             title={`${getCategoryName()}`}
-            events={events}
+            events={events as any}
             emptyText={`Currently there is no event in this Category`}
             limit={4}
             showViewAll={events.length > 4}
@@ -115,7 +172,7 @@ export default function Index() {
           <>
             <EventsList
               title="Latest Events"
-              events={latestEvents}
+              events={latestEvents as any}
               limit={4}
               showViewAll={latestEvents.length > 4}
               navigateTo="/events?tab=latest"
@@ -123,7 +180,7 @@ export default function Index() {
 
             <EventsList
               title="All Events"
-              events={events}
+              events={events as any}
               limit={4}
               showViewAll={true}
               navigateTo="/events"
@@ -144,14 +201,14 @@ export default function Index() {
         {selectedCategory && !hasSearched && (
           <EventsList
             title="Latest Events"
-            events={latestEvents}
+            events={latestEvents as any}
             limit={4}
             showViewAll={latestEvents.length > 4}
             navigateTo="/events?tab=latest"
           />
         )}
         
-        {/* Add the new HomeContent component */}
+        {/* Add the HomeContent component */}
         <HomeContent />
       </div>
     </div>
